@@ -25,7 +25,7 @@ The model is trained with a batch size of 64 until the validation loss stabilize
 - The tone (平仄) of the characters must satisfy the [tonal patterns](./model/Data/templates.json) of 七言律诗 (seven-character regulated verse).
 - The characters that rhyme must belong to the same 平水韵 (Ping Shui Yun) [rhyme group](./model/Data/rhyme_table.json).
 
-Another restriction is that the rhyming characters should not repeat, and repetition in general is penalized. When the user provides a title, the model will generate a poem with relevant content. The script is available on [Google Colab](https://colab.research.google.com/drive/1t-YuAHcHE9ubuFYf_acDLS3uS68gfpKT?usp=sharing).
+The rhyming characters are restricted not to repeat, and repetition in general is penalized. For a user-provided title, the model will generate a poem with relevant content. The script is available on [Google Colab](https://colab.research.google.com/drive/1t-YuAHcHE9ubuFYf_acDLS3uS68gfpKT?usp=sharing).
 
 ## Quantization
 
