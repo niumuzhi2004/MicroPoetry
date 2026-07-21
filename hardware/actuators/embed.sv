@@ -33,6 +33,10 @@ module embed #(
     logic [$clog2(BLOCK_SIZE*N_EMBD)-1:0] wpe_addr_d, wpe_addr_q;
     logic [ADDR_WIDTH-1:0] wr_addr_d, wr_addr_q;
 
+    assign wte_addr = wte_addr_q;
+    assign wpe_addr = wpe_addr_q;
+    assign wr_addr  = wr_addr_q;
+
     typedef enum logic [1:0] {
         IDLE  = 2'b00,
         READ  = 2'b01,
