@@ -11,7 +11,7 @@ module wpe_rom #(
     logic [DATA_WIDTH-1:0] rom [0:(BLOCK_SIZE*N_EMBD-1)];
 
     initial begin
-        $readmemh("../../quantization/Data/wpe.weight.mem", rom);
+        $readmemh("wpe_weight.hex", rom);
     end
 
     always_ff @(posedge clk) begin

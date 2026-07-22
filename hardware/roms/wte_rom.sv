@@ -11,7 +11,7 @@ module wte_rom #(
     logic [DATA_WIDTH-1:0] rom [0:(VOCAB_SIZE*N_EMBD-1)];
 
     initial begin
-        $readmemh("../../quantization/Data/wte.weight.mem", rom);
+        $readmemh("wte_weight.hex", rom);
     end
 
     always_ff @(posedge clk) begin

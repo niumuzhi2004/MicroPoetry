@@ -1,4 +1,4 @@
-import addr_pkg::*;
+import proj_pkg::*;
 
 module embed #(
     parameter int VOCAB_SIZE = 3005,
@@ -33,15 +33,14 @@ module embed #(
     logic [$clog2(BLOCK_SIZE*N_EMBD)-1:0] wpe_addr_d, wpe_addr_q;
     logic [ADDR_WIDTH-1:0] wr_addr_d, wr_addr_q;
 
-    assign wte_addr = wte_addr_q;
-    assign wpe_addr = wpe_addr_q;
+    assign wte_addr = wte_addr_d;
+    assign wpe_addr = wpe_addr_d;
     assign wr_addr  = wr_addr_q;
 
     typedef enum logic [1:0] {
         IDLE  = 2'b00,
-        READ  = 2'b01,
-        WRITE = 2'b10,
-        DONE  = 2'b11
+        WRITE = 2'b01,
+        DONE  = 2'b10
     } state_t;
 
     state_t curr_state, next_state;
@@ -84,22 +83,20 @@ module embed #(
                     wte_addr_d = token_id * N_EMBD;
                     wpe_addr_d = pos_id * N_EMBD;
                     wr_addr_d  = X_EMBD_BASE_ADDR;
-                    next_state = READ;
+                    next_state = WRITE;
                 end
             end
 
-            READ: next_state = WRITE;
-
             WRITE: begin
                 wr_en      = 1'b1;
-                wr_data    = wpe_data_q + wte_data_q;
+                wr_data    = wpe_data + wte_data;
                 count_d    = count_q + 1;
 
                 if (count_q < N_EMBD-1) begin
                     wte_addr_d = wte_addr_q + 1;
                     wpe_addr_d = wpe_addr_q + 1;
                     wr_addr_d  = wr_addr_q + 1;
-                    next_state = READ;
+                    next_state = WRITE;
                 end else begin
                     next_state = DONE;
                 end
