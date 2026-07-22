@@ -8,7 +8,7 @@ module wte_rom #(
     output logic [DATA_WIDTH-1:0] data
 );
 
-    logic [DATA_WIDTH-1:0] rom [0:(VOCAB_SIZE*N_EMBD-1)];
+    (* ram_style = "block" *) logic [DATA_WIDTH-1:0] rom [0:(VOCAB_SIZE*N_EMBD-1)];
 
     initial begin
         $readmemh("wte_weight.hex", rom);
