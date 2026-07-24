@@ -29,20 +29,26 @@ The rhyming characters are restricted not to repeat, and repetition in general i
 
 ## Quantization
 
-With the model trained in `Float32`, we explored how quantization in inference affects the quality of the generated poems, which is evaluated by the validation loss. The model is quantized to `INT8`, `INT4`, and a mixed precision of `INT8` for embedding and `INT4` for the transformer layers. The following plot shows the trade-off between the quality of the model and the memory consumption. 
+With the model trained in `Float32`, we explored how quantization in inference affects the quality of the generated poems, which is evaluated by the validation loss. The model weights are first quantized to `INT8`, `INT4`, and a mixed precision of `INT8` for embedding and `INT4` for the transformer layers. For each of the data types, we applied per-channel and per-tensor quantization. For each of the quantization schemes, we evaluated the validation loss on 100 randomly selected batches of size 64 from the validation set. The results are summarized below:
 
-<div align="center">
-  <img src="./quantization/quantization_light.png#gh-light-mode-only" width="70%" alt="Quantization Trade-Off">
-  <img src="./quantization/quantization_dark.png#gh-dark-mode-only" width="70%" alt="Quantization Trade-Off">
-</div>
+| Quantization Scheme | Validation Loss | Memory Footprint |
+|---------------------|-----------------|------------------|
+| `float32`           | ~4.905          | ~1.54MB          |
+| `INT8` per-channel  | ~4.886          | ~407KB           |
+| `INT8` per-tensor   | ~4.896          | ~386KB           |
+| Mixed per-channel   | ~5.057          | ~311KB           |
+| Mixed per-tensor    | ~5.541          | ~290KB           |
+| `INT4`per-channel   | ~5.134          | ~214KB           |
+| `INT4`per-tensor    | ~8.344          | ~193KB           |
 
-`INT8` quantization reduces the model to a quarter of the original size while showing only a slight degradation in quality. Mixed and `INT4` quantizations further reduce the model size but with more significant drops in quality. Here we choose `INT8` for the inference engine implementation on FPGA, with a memory footprint of ~396KB, which is within the 560KB on-chip BRAM available on the Zynq-7020 FPGA.
+`INT8` per-channel and per-tensor quantizations show similar performance compared to the `float32`. Here we choose `INT8` per-tensor quantization for its memory efficiency, with a footprint of ~386KB, which is within the 560KB on-chip BRAM available on the Zynq-7020 FPGA. Per-tensor `INT8` quantization is performed for the activations as well. 
 
 ## Acknowledgments
 
 This project builds on:
 
 - **[microgpt](https://karpathy.github.io/2026/02/12/microgpt/)** by Andrej Karpathy — the minimal, dependency-free GPT implementation that this project's architecture is derived from.
+- **[gateGPT](https://github.com/fguzman82/gateGPT/tree/main)** by fguzman82 — an RTL implmenentation of microgpt running on Vertex-5 FPGA, referenced for architectural inspiration.
 - **[chinese-poetry](https://github.com/chinese-poetry/chinese-poetry)** by jackeyGao — the Tang and Song poetry corpus (全唐诗, 全宋诗) used for training data.
 - **[chinese_word_rhyme](https://github.com/charlesix59/chinese_word_rhyme)** by charlesix59 — 平水韵 rhyme category and tone (平仄) reference tables used for structural constraints.
 
