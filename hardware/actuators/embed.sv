@@ -32,6 +32,7 @@ module embed #(
     logic [$clog2(VOCAB_SIZE*N_EMBD)-1:0] wte_addr_d, wte_addr_q;
     logic [$clog2(BLOCK_SIZE*N_EMBD)-1:0] wpe_addr_d, wpe_addr_q;
     logic [ADDR_WIDTH-1:0] wr_addr_d, wr_addr_q;
+    logic signed [31:0] temp_val;  // used for clamping when scaling
 
     assign wte_addr = wte_addr_d;
     assign wpe_addr = wpe_addr_d;
@@ -71,9 +72,10 @@ module embed #(
         wpe_addr_d = wpe_addr_q;
         wr_addr_d  = wr_addr_q;
 
-        done    = 1'b0;
-        wr_en   = 1'b0;
-        wr_data = 0;
+        done     = 1'b0;
+        wr_en    = 1'b0;
+        wr_data  = 0;
+        temp_val = 0;
 
         case (curr_state)
 
@@ -89,7 +91,15 @@ module embed #(
 
             WRITE: begin
                 wr_en      = 1'b1;
-                wr_data    = wpe_data + wte_data;
+
+                // apply scaling
+                temp_val   = ($signed(wpe_data) * M_WPE + $signed(wte_data) * M_WTE) >>> S_GLOBAL;
+                if (temp_val > 32'sd127)
+                    temp_val = 32'sd127;
+                else if (temp_val < -32'sd127)
+                    temp_val = -32'sd127;
+                wr_data = temp_val[7:0];
+
                 count_d    = count_q + 1;
 
                 if (count_q < N_EMBD-1) begin
