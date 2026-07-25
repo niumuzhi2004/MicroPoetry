@@ -90,17 +90,17 @@ module embed #(
             end
 
             WRITE: begin
-                wr_en      = 1'b1;
+                wr_en = 1'b1;
 
                 // apply scaling
-                temp_val   = ($signed(wpe_data) * M_WPE + $signed(wte_data) * M_WTE) >>> S_GLOBAL;
-                if (temp_val > 32'sd127)
-                    temp_val = 32'sd127;
-                else if (temp_val < -32'sd127)
-                    temp_val = -32'sd127;
+                temp_val = ($signed(wpe_data) * M_WPE + $signed(wte_data) * M_WTE) >>> S_EMBED;
+                if (temp_val > 8'sd127)
+                    temp_val = 8'sd127;
+                else if (temp_val < -8'sd127)
+                    temp_val = -8'sd127;
                 wr_data = temp_val[7:0];
 
-                count_d    = count_q + 1;
+                count_d = count_q + 1;
 
                 if (count_q < N_EMBD-1) begin
                     wte_addr_d = wte_addr_q + 1;
