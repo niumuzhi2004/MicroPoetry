@@ -88,6 +88,10 @@ module matvec #(
                 vec_base_addr    = POST_RELU_BASE_ADDR;
                 result_base_addr = POST_MLP_FC2_BASE_ADDR;
             end
+            LM_HEAD: begin
+                vec_base_addr    = X_NORM_BASE_ADDR;
+                result_base_addr = LOGITS_BUFFER_BASE_ADDR;
+            end
             default: begin
                 vec_base_addr    = SCRATCHPAD_BASE_ADDR;
                 result_base_addr = SCRATCHPAD_BASE_ADDR;

@@ -28,6 +28,7 @@ module embed #(
     output logic [DATA_WIDTH-1:0] wr_data
 );
 
+    // flip-flop signals
     logic [$clog2(N_EMBD):0] count_d, count_q;
     logic [$clog2(VOCAB_SIZE*N_EMBD)-1:0] wte_addr_d, wte_addr_q;
     logic [$clog2(BLOCK_SIZE*N_EMBD)-1:0] wpe_addr_d, wpe_addr_q;
