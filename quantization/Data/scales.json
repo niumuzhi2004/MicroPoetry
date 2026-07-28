@@ -27,5 +27,21 @@
     "M_mlp_fc2_layer1": 117,
     "M_mlp_fc2_layer2": 157,
     "M_mlp_fc2_layer3": 222,
-    "M_lm_head": 225
+    "M_lm_head": 225,
+    "S_norm": 16,
+    "S_ms_real": 8,
+    "M_emb_norm_ms_real": 219,
+    "M_emb_norm_idx": 1591,
+    "M_emb_norm_output": 7,
+    "M_x_norm_layer0_ms_real": 311,
+    "M_x_norm_layer0_output": 6,
+    "M_x_norm_layer123_ms_real": 10970,
+    "M_x_norm_layer123_output": 37,
+    "M_x_norm_idx": 85,
+    "M_pre_mlp_norm_ms_real": 10318,
+    "M_pre_mlp_norm_idx": 90,
+    "M_pre_mlp_norm_output": 37,
+    "M_final_norm_ms_real": 10970,
+    "M_final_norm_idx": 39,
+    "M_final_norm_output": 42
 }

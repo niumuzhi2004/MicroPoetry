@@ -6,6 +6,11 @@ with open("./Data/activation_scales.json", 'r') as file:
 with open("./Data/weight_scales.json", 'r') as file:
     weight_scale = json.load(file)
 
+with open("./Data/rmsnorm.json", 'r') as file:
+    rmsnorm_scale = json.load(file)
+LUTs = rmsnorm_scale["luts"]
+steps = rmsnorm_scale["steps"]
+
 num_of_layers = 4
 scale_table = {}
 
@@ -104,6 +109,105 @@ r = scale_final_norm * scale_lm_head / scale_final_logits
 M = round(r * (2**S))
 scale_table[f"M_lm_head"] = M
 print(f"lm_head: \t r: {r} \t S: {S} \t M: {M}")
+
+
+##### For norm calculating LUT index #####
+print("\nNorm:")
+S = 16
+S_ms_real = 8
+scale_table['S_norm'] = S
+scale_table['S_ms_real'] = S_ms_real
+
+
+# emb_norm
+scale_x_input = activation_scale["emb_sum"]
+r = (scale_x_input ** 2) * (2 ** 10)
+M = round(r * 2**S_ms_real)
+scale_table["M_emb_norm_ms_real"] = M
+print(f"emb_norm ms_real: \t r: {r} \t S: {S_ms_real} \t M: {M}")
+
+r = 1 / ((steps["emb_norm"] / (2 ** 15)) * (2 ** 10))
+M = round(r * 2**S)
+scale_table["M_emb_norm_idx"] = M
+print(f"emb_norm idx: \t r: {r} \t S: {S} \t M: {M}")
+
+scale_x_output = activation_scale["emb_norm"]
+r = scale_x_input / (2**13 * scale_x_output)
+M = round(r * 2**S)
+scale_table["M_emb_norm_output"] = M
+print(f"emb_norm output: \t r: {r} \t S: {S} \t M: {M}")
+
+
+# x_norm
+# layer 0
+scale_x_input = activation_scale["emb_norm"]
+r = (scale_x_input ** 2) * (2 ** 10)
+M = round(r * 2**S_ms_real)
+scale_table["M_x_norm_layer0_ms_real"] = M
+print(f"x_norm (layer 0) ms_real: \t r: {r} \t S: {S_ms_real} \t M: {M}")
+
+scale_x_output = activation_scale["x_norm"]
+r = scale_x_input / (2**13 * scale_x_output)
+M = round(r * 2**S)
+scale_table["M_x_norm_layer0_output"] = M
+print(f"x_norm (layer 0) output: \t r: {r} \t S: {S} \t M: {M}")
+
+# layer 1-3
+scale_x_input = activation_scale["last_x+residual"]
+r = (scale_x_input ** 2) * (2 ** 10)
+M = round(r * 2**S_ms_real)
+scale_table["M_x_norm_layer123_ms_real"] = M
+print(f"x_norm (layer 1-3) ms_real: \t r: {r} \t S: {S_ms_real} \t M: {M}")
+
+scale_x_output = activation_scale["x_norm"]
+r = scale_x_input / (2**13 * scale_x_output)
+M = round(r * 2**S)
+scale_table["M_x_norm_layer123_output"] = M
+print(f"x_norm (layer 1-3) output: \t r: {r} \t S: {S} \t M: {M}")
+
+r = 1 / ((steps["x_norm"] / (2 ** 15)) * (2 ** 10))
+M = round(r * 2**S)
+scale_table["M_x_norm_idx"] = M
+print(f"x_norm idx: \t r: {r} \t S: {S} \t M: {M}")
+
+
+# pre_mlp_norm
+scale_x_input = activation_scale["x+residual"]
+r = (scale_x_input ** 2) * (2 ** 10)
+M = round(r * 2**S_ms_real)
+scale_table["M_pre_mlp_norm_ms_real"] = M
+print(f"pre_mlp_norm ms_real: \t r: {r} \t S: {S_ms_real} \t M: {M}")
+
+r = 1 / ((steps["post_mlp_norm"] / (2 ** 15)) * (2 ** 10))
+M = round(r * 2**S)
+scale_table["M_pre_mlp_norm_idx"] = M
+print(f"pre_mlp_norm idx: \t r: {r} \t S: {S} \t M: {M}")
+
+scale_x_output = activation_scale["post_mlp_norm"]
+r = scale_x_input / (2**13 * scale_x_output)
+M = round(r * 2**S)
+scale_table["M_pre_mlp_norm_output"] = M
+print(f"pre_mlp_norm output: \t r: {r} \t S: {S} \t M: {M}")
+
+
+# final_norm
+scale_x_input = activation_scale["last_x+residual"]
+r = (scale_x_input ** 2) * (2 ** 10)
+M = round(r * 2**S_ms_real)
+scale_table["M_final_norm_ms_real"] = M
+print(f"final_norm ms_real: \t r: {r} \t S: {S_ms_real} \t M: {M}")
+
+r = 1 / ((steps["final_norm"] / (2 ** 15)) * (2 ** 10))
+M = round(r * 2**S)
+scale_table["M_final_norm_idx"] = M
+print(f"final_norm idx: \t r: {r} \t S: {S} \t M: {M}")
+
+scale_x_output = activation_scale["final_norm"]
+r = scale_x_input / (2**13 * scale_x_output)
+M = round(r * 2**S)
+scale_table["M_final_norm_output"] = M
+print(f"final_norm output: \t r: {r} \t S: {S} \t M: {M}")
+
 
 with open("./Data/scales.json", 'w') as file:
     json.dump(scale_table, file, indent=4)

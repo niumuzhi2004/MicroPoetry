@@ -53,7 +53,25 @@ package proj_pkg;
     parameter int M_MLP_FC2_LAYER_3 = 222;
     parameter int M_LM_HEAD = 225;
 
-    // typedef enums for matvec
+    parameter int S_NORM                     = 16;
+    parameter int S_MS_REAL                  = 8;
+    parameter int M_EMB_NORM_MS_REAL         = 219;
+    parameter int M_EMB_NORM_IDX             = 1591;
+    parameter int M_EMB_NORM_OUTPUT          = 7;
+    parameter int M_X_NORM_LAYER0_MS_REAL    = 311;
+    parameter int M_X_NORM_LAYER0123_MS_REAL = 10970;
+    parameter int M_X_NORM_LAYER0_OUTPUT     = 6;
+    parameter int M_X_NORM_LAYER123_OUTPUT   = 37;
+    parameter int M_X_NORM_IDX               = 85; 
+    parameter int M_PRE_MLP_NORM_MS_REAL     = 10318;   
+    parameter int M_PRE_MLP_NORM_IDX         = 90;
+    parameter int M_PRE_MLP_NORM_OUTPUT      = 37;
+    parameter int M_FINAL_NORM_MS_REAL       = 10970;
+    parameter int M_FINAL_NORM_IDX           = 39;
+    parameter int M_FINAL_NORM_OUTPUT        = 42;
+
+
+    // typedef enum for matvec
     typedef enum logic [2:0] {  
         ATTN_WQ = 3'b000,
         ATTN_WK = 3'b001,
@@ -63,5 +81,13 @@ package proj_pkg;
         MLP_FC2 = 3'b101,
         LM_HEAD = 3'b110
     } matvec_param_t;
+
+    // typedef enum for norm
+    typedef enum logic [1:0] { 
+        X_NORM       = 2'b00,
+        EMB_NORM     = 2'b01,
+        PRE_MLP_NORM = 2'b10,
+        FINAL_NORM   = 2'b11
+    } norm_param_t;
 
 endpackage
