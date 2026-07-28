@@ -39,6 +39,7 @@ module embed #(
     assign wpe_addr = wpe_addr_d;
     assign wr_addr  = wr_addr_q;
 
+    // FSM states
     typedef enum logic [1:0] {
         IDLE  = 2'b00,
         WRITE = 2'b01,

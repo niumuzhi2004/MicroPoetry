@@ -1,6 +1,6 @@
 # MicroPoetry
 
-This projects extends Andrej Karpathy's **[microgpt](https://karpathy.github.io/2026/02/12/microgpt/)** by building a hardware-accelerated GPT model for classical Chinese poetry. 
+This projects extends Andrej Karpathy's **[microgpt](https://karpathy.github.io/2026/02/12/microgpt/)** and Fabio Guzman's **[gateGPT](https://github.com/fguzman82/gateGPT/tree/main)** by building a hardware-accelerated GPT model for classical Chinese poetry. 
 We target specifically at the 七言律诗 (seven-character regulated verse) format, where a poem contains 8 lines, with each line containing 7 characters. 
 The main goal of the project is to build an inference engine in RTL for the quantized transformer model, implemented on a Xilinx Zynq-7020 FPGA. 
 
