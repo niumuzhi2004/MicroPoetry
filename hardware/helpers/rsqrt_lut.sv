@@ -1,3 +1,7 @@
+// look-up table used in the norm actuator
+// used for determining the inverse square root of ms
+// i.e., (ms) ** -0.5 in rmsnorm()
+
 import proj_pkg::*;
 
 module rsqrt_lut (
