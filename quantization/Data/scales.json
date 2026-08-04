@@ -43,5 +43,12 @@
     "M_pre_mlp_norm_output": 29,
     "M_final_norm_ms_real": 8692,
     "M_final_norm_idx": 39,
-    "M_final_norm_output": 38
+    "M_final_norm_output": 38,
+    "S_softmax": 16,
+    "M_attn_softmax_diff": 17963,
+    "M_final_softmax_diff": 9787,
+    "M_exp_idx": 64,
+    "M_recip_idx": 64,
+    "S_softmax_output": 32,
+    "M_softmax_output": 1020
 }

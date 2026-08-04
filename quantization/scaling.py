@@ -11,6 +11,10 @@ with open("./Data/rmsnorm.json", 'r') as file:
 LUTs = rmsnorm_scale["luts"]
 steps = rmsnorm_scale["steps"]
 
+with open("./Data/softmax.json", 'r') as file:
+    softmax_scale = json.load(file)
+exp_step, recip_step = softmax_scale["exp_step"], softmax_scale["total_step"]
+
 num_of_layers = 4
 scale_table = {}
 
@@ -207,6 +211,43 @@ r = scale_x_input / (2**13 * scale_x_output)
 M = round(r * 2**S)
 scale_table["M_final_norm_output"] = M
 print(f"final_norm output: \t r: {r} \t S: {S} \t M: {M}")
+
+
+##### For softmax #####
+print("\nSoftmax:")
+S = 16
+scale_table['S_softmax'] = S
+
+# attn_softmax
+r = activation_scale["attn_logits"]
+M = round(r * 2**S)
+scale_table["M_attn_softmax_diff"] = M
+print(f"attn_softmax diff: \t r: {r} \t S: {S} \t M: {M}")
+
+# final_softmax
+r = activation_scale["final_logits"]
+M = round(r * 2**S)
+scale_table["M_final_softmax_diff"] = M
+print(f"final_softmax diff: \t r: {r} \t S: {S} \t M: {M}")
+
+
+r = 1 / (2**12 * exp_step)
+M = round(r * 2**S)
+scale_table["M_exp_idx"] = M
+print(f"softmax exp idx: \t r: {r} \t S: {S} \t M: {M}")
+
+r = 1 / (2**15 * recip_step)
+M = round(r * 2**S)
+scale_table["M_recip_idx"] = M
+print(f"softmax recip idx: \t r: {r} \t S: {S} \t M: {M}")
+
+
+S_output = 32
+scale_table['S_softmax_output'] = S_output
+r = 255 / (2**30)
+M = round(r * 2**S_output)
+scale_table["M_softmax_output"] = M
+print(f"softmax_output: \t r: {r} \t S: {S_output} \t M: {M}")
 
 
 with open("./Data/scales.json", 'w') as file:
