@@ -1,7 +1,7 @@
 import proj_pkg::*;
 
 module softmax #(
-    parameter int N_EMBD     = 64,
+    parameter int N_HEAD     = 4,
     parameter int VOCAB_SIZE = 3005,
     parameter int BLOCK_SIZE = 96,
     parameter int ADDR_WIDTH = 16,
@@ -14,6 +14,8 @@ module softmax #(
     input  logic start,
     output logic done,
     input  softmax_param_t param,
+    input  logic [$clog2(N_HEAD)-1:0] head_id,
+    input  logic [$clog2(BLOCK_SIZE)-1:0] pos_id,
 
     // scratchpad port A for reading and writing odd entries
     input  logic [DATA_WIDTH-1:0] rd_data_a,
@@ -34,9 +36,9 @@ module softmax #(
     always_comb begin
         case (param)
             ATTN_SOFTMAX: begin
-                input_base_addr  = ATTN_LOGITS_BASE_ADDR;
-                output_base_addr = ATTN_WEIGHTS_BASE_ADDR;
-                logit_size       = BLOCK_SIZE;
+                input_base_addr  = ATTN_LOGITS_BASE_ADDR + head_id * 7'd96;
+                output_base_addr = ATTN_WEIGHTS_BASE_ADDR + head_id * 7'd96;
+                logit_size       = pos_id + 1;
             end
             FINAL_SOFTMAX: begin
                 input_base_addr  = LOGITS_BUFFER_BASE_ADDR;
