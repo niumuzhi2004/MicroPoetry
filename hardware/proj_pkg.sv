@@ -1,7 +1,16 @@
 package proj_pkg;
 
     // base address definitions
-    parameter int KV_CACHE_BASE_ADDR      = 16'h0000;
+    parameter int K_CACHE_BASE_ADDR       = 16'h0000;
+    parameter int K_LAYER0_BASE_ADDR      = 16'h0000;
+    parameter int K_LAYER1_BASE_ADDR      = 16'h1800;
+    parameter int K_LAYER2_BASE_ADDR      = 16'h3000;
+    parameter int K_LAYER3_BASE_ADDR      = 16'h4800;
+    parameter int V_CACHE_BASE_ADDR       = 16'h6000;
+    parameter int V_LAYER0_BASE_ADDR      = 16'h6000;
+    parameter int V_LAYER1_BASE_ADDR      = 16'h7800;
+    parameter int V_LAYER2_BASE_ADDR      = 16'h9000;
+    parameter int V_LAYER3_BASE_ADDR      = 16'hA800;
 
     parameter int SCRATCHPAD_BASE_ADDR    = 16'hC000;
     parameter int X_EMBD_BASE_ADDR        = 16'hC000;
@@ -77,6 +86,9 @@ package proj_pkg;
     parameter int M_EXP_IDX            = 64;
     parameter int M_RECIP_IDX          = 64;
     parameter int M_SOFTMAX_OUTPUT     = 1020;
+
+    parameter int S_ATTN_SCORE = 16;
+    parameter int M_ATTN_SCORE = 274;
 
 
     parameter logic signed [15:0] DIFF_LOWER_BOUND = 16'sh8000; // -8 in Q4.12

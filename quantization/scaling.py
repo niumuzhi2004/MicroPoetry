@@ -250,5 +250,21 @@ scale_table["M_softmax_output"] = M
 print(f"softmax_output: \t r: {r} \t S: {S_output} \t M: {M}")
 
 
+##### For attn_score #####
+print("\nattn_score:")
+S = 16
+scale_table['S_attn_score'] = S
+
+scale_q = activation_scale["q"]
+scale_k = activation_scale["k"]
+scale_attn_logits = activation_scale["attn_logits"]
+
+r = (scale_q * scale_k) / (4 * scale_attn_logits)
+M = round(r * 2**S)
+scale_table["M_attn_score"] = M
+print(f"attn_score: \t r: {r} \t S: {S} \t M: {M}")
+
+
+
 with open("./Data/scales.json", 'w') as file:
     json.dump(scale_table, file, indent=4)
