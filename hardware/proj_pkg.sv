@@ -89,6 +89,8 @@ package proj_pkg;
 
     parameter int S_ATTN_SCORE = 16;
     parameter int M_ATTN_SCORE = 274;
+    parameter int S_ATTN_SUM   = 16;
+    parameter int M_ATTN_SUM   = 265;
 
 
     parameter logic signed [15:0] DIFF_LOWER_BOUND = 16'sh8000; // -8 in Q4.12

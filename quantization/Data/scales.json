@@ -52,5 +52,7 @@
     "S_softmax_output": 32,
     "M_softmax_output": 1020,
     "S_attn_score": 16,
-    "M_attn_score": 274
+    "M_attn_score": 274,
+    "S_attn_sum": 16,
+    "M_attn_sum": 265
 }

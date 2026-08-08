@@ -250,6 +250,7 @@ scale_table["M_softmax_output"] = M
 print(f"softmax_output: \t r: {r} \t S: {S_output} \t M: {M}")
 
 
+
 ##### For attn_score #####
 print("\nattn_score:")
 S = 16
@@ -263,6 +264,22 @@ r = (scale_q * scale_k) / (4 * scale_attn_logits)
 M = round(r * 2**S)
 scale_table["M_attn_score"] = M
 print(f"attn_score: \t r: {r} \t S: {S} \t M: {M}")
+
+
+
+##### For attn_sum #####
+print("\nattn_sum:")
+S = 16
+scale_table['S_attn_sum'] = S
+
+scale_v = activation_scale["v"]
+scale_attn_weights = 1.0 / 255
+scale_x_attn = activation_scale["x_attn"]
+
+r = (scale_attn_weights * scale_v) / (scale_x_attn)
+M = round(r * 2**S)
+scale_table["M_attn_sum"] = M
+print(f"attn_sum: \t r: {r} \t S: {S} \t M: {M}")
 
 
 
