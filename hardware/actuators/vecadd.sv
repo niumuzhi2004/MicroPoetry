@@ -1,6 +1,6 @@
 import proj_pkg::*;
 
-module vecop #(
+module vecadd #(
     parameter int N_EMBD     = 64,
     parameter int ADDR_WIDTH = 16,
     parameter int DATA_WIDTH = 8
@@ -12,7 +12,7 @@ module vecop #(
     input  logic start,
     output logic done,
     input  logic [1:0] layer,
-    input  vecop_param_t param,
+    input  vecadd_param_t param,
 
     // scratchpad port A for reading entries
     input  logic [DATA_WIDTH-1:0] rd_data_a,
@@ -56,12 +56,12 @@ module vecop #(
     always_comb begin
         case (param)
             ATTN_VEC_SUM: begin
-                M_scale_a = M_VECOP_ATTN_SCALE_A;
-                M_scale_b = (layer == 2'b00) ? M_VECOP_ATTN_SCALE_B_LAYER0 : M_VECOP_ATTN_SCALE_B_LAYER123;
+                M_scale_a = M_VECADD_ATTN_SCALE_A;
+                M_scale_b = (layer == 2'b00) ? M_VECADD_ATTN_SCALE_B_LAYER0 : M_VECADD_ATTN_SCALE_B_LAYER123;
             end
             MLP_VEC_SUM: begin
-                M_scale_a = M_VECOP_MLP_SCALE_A;
-                M_scale_b = M_VECOP_MLP_SCALE_B;
+                M_scale_a = M_VECADD_MLP_SCALE_A;
+                M_scale_b = M_VECADD_MLP_SCALE_B;
             end
             default: begin
                 M_scale_a = 16'h0001;
@@ -130,13 +130,13 @@ module vecop #(
             end
 
             RD1: begin
-                rescaled_a_d = ($signed(rd_data_a) * $signed(M_scale_a)) >>> S_VECOP;
+                rescaled_a_d = ($signed(rd_data_a) * $signed(M_scale_a)) >>> S_VECADD;
                 rd_addr_d    = input_b_base_addr + count_q;
                 next_state   = RD2;
             end
 
             RD2: begin
-                rescaled_b_d = ($signed(rd_data_a) * $signed(M_scale_b)) >>> S_VECOP;
+                rescaled_b_d = ($signed(rd_data_a) * $signed(M_scale_b)) >>> S_VECADD;
                 next_state   = WRITE;
             end
 

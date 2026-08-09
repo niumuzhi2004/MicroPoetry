@@ -92,12 +92,12 @@ package proj_pkg;
     parameter int S_ATTN_SUM   = 16;
     parameter int M_ATTN_SUM   = 265;
 
-    parameter int S_VECOP                       = 15;
-    parameter int M_VECOP_ATTN_SCALE_A          = 4629;
-    parameter int M_VECOP_ATTN_SCALE_B_LAYER0   = 7596;
-    parameter int M_VECOP_ATTN_SCALE_B_LAYER123 = 40187;
-    parameter int M_VECOP_MLP_SCALE_A           = 22927;
-    parameter int M_VECOP_MLP_SCALE_B           = 26718;
+    parameter int S_VECADD                       = 15;
+    parameter int M_VECADD_ATTN_SCALE_A          = 4629;
+    parameter int M_VECADD_ATTN_SCALE_B_LAYER0   = 7596;
+    parameter int M_VECADD_ATTN_SCALE_B_LAYER123 = 40187;
+    parameter int M_VECADD_MLP_SCALE_A           = 22927;
+    parameter int M_VECADD_MLP_SCALE_B           = 26718;
 
 
     // constants for softmax
@@ -130,10 +130,10 @@ package proj_pkg;
         FINAL_SOFTMAX = 1'b1
     } softmax_param_t;
 
-    // typedef enum for vecop
+    // typedef enum for vecadd
     typedef enum logic {
         ATTN_VEC_SUM = 1'b0,
         MLP_VEC_SUM  = 1'b1
-    } vecop_param_t;
+    } vecadd_param_t;
 
 endpackage
