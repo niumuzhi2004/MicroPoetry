@@ -92,7 +92,15 @@ package proj_pkg;
     parameter int S_ATTN_SUM   = 16;
     parameter int M_ATTN_SUM   = 265;
 
+    parameter int S_VECOP                       = 15;
+    parameter int M_VECOP_ATTN_SCALE_A          = 4629;
+    parameter int M_VECOP_ATTN_SCALE_B_LAYER0   = 7596;
+    parameter int M_VECOP_ATTN_SCALE_B_LAYER123 = 40187;
+    parameter int M_VECOP_MLP_SCALE_A           = 22927;
+    parameter int M_VECOP_MLP_SCALE_B           = 26718;
 
+
+    // constants for softmax
     parameter logic signed [15:0] DIFF_LOWER_BOUND = 16'sh8000; // -8 in Q4.12
     parameter logic [15:0] RECIP_LOWER_BOUND       = 16'h8000;  // 1 in Q1.15         
 
@@ -121,5 +129,11 @@ package proj_pkg;
         ATTN_SOFTMAX  = 1'b0,
         FINAL_SOFTMAX = 1'b1
     } softmax_param_t;
+
+    // typedef enum for vecop
+    typedef enum logic {
+        ATTN_VEC_SUM = 1'b0,
+        MLP_VEC_SUM  = 1'b1
+    } vecop_param_t;
 
 endpackage

@@ -283,5 +283,49 @@ print(f"attn_sum: \t r: {r} \t S: {S} \t M: {M}")
 
 
 
+##### For vecop #####
+print("\nvecop:")
+S = 15
+scale_table['S_vecop'] = S
+
+# attn vecop
+scale_a = activation_scale["post_wo"]
+scale_output = activation_scale["x+residual"]
+r = scale_a / scale_output
+M = round(r * 2**S)
+scale_table["M_vecop_attn_scale_a"] = M
+print(f"attn scale a: \t r: {r} \t S: {S} \t M: {M}")
+
+# layer 0
+scale_b = activation_scale["emb_norm"]
+r = scale_b / scale_output
+M = round(r * 2**S)
+scale_table["M_vecop_attn_scale_b_layer0"] = M
+print(f"attn scale b layer 0: \t r: {r} \t S: {S} \t M: {M}")
+
+# layer 1-3
+scale_b = activation_scale["last_x+residual"]
+r = scale_b / scale_output
+M = round(r * 2**S)
+scale_table["M_vecop_attn_scale_b_layer123"] = M
+print(f"attn scale b layer 1-3: \t r: {r} \t S: {S} \t M: {M}")
+
+
+# mlp vecop
+scale_a = activation_scale["post_mlp_fc2"]
+scale_output = activation_scale["last_x+residual"]
+r = scale_a / scale_output
+M = round(r * 2**S)
+scale_table["M_vecop_mlp_scale_a"] = M
+print(f"mlp scale a: \t r: {r} \t S: {S} \t M: {M}")
+
+scale_b = activation_scale["x+residual"]
+r = scale_b / scale_output
+M = round(r * 2**S)
+scale_table["M_vecop_mlp_scale_b"] = M
+print(f"mlp scale b: \t r: {r} \t S: {S} \t M: {M}")
+
+
+
 with open("./Data/scales.json", 'w') as file:
     json.dump(scale_table, file, indent=4)
