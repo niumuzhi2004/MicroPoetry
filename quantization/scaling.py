@@ -327,5 +327,17 @@ print(f"mlp scale b: \t r: {r} \t S: {S} \t M: {M}")
 
 
 
+##### For ReLU #####
+print("\nReLU:")
+S = 16
+scale_table['S_relu'] = S
+
+r = activation_scale["post_mlp_fc1"] / activation_scale["post_relu"]
+M = round(r * 2**S)
+scale_table["M_relu"] = M
+print(f"relu: \t r: {r} \t S: {S} \t M: {M}")
+
+
+
 with open("./Data/scales.json", 'w') as file:
     json.dump(scale_table, file, indent=4)

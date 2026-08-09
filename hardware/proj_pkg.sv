@@ -11,6 +11,7 @@ package proj_pkg;
     parameter int V_LAYER1_BASE_ADDR      = 16'h7800;
     parameter int V_LAYER2_BASE_ADDR      = 16'h9000;
     parameter int V_LAYER3_BASE_ADDR      = 16'hA800;
+    parameter int KV_CACHE_LAYER_SIZE     = 16'h1800;
 
     parameter int SCRATCHPAD_BASE_ADDR    = 16'hC000;
     parameter int X_EMBD_BASE_ADDR        = 16'hC000;
@@ -99,6 +100,9 @@ package proj_pkg;
     parameter int M_VECADD_MLP_SCALE_A           = 22927;
     parameter int M_VECADD_MLP_SCALE_B           = 26718;
 
+    parameter int S_RELU = 16;
+    parameter int M_RELU = 41479;
+
 
     // constants for softmax
     parameter logic signed [15:0] DIFF_LOWER_BOUND = 16'sh8000; // -8 in Q4.12
@@ -135,5 +139,14 @@ package proj_pkg;
         ATTN_VEC_SUM = 1'b0,
         MLP_VEC_SUM  = 1'b1
     } vecadd_param_t;
+
+    // typedef enum for vecmove
+    typedef enum logic [2:0] {
+        RELU               = 3'b000,
+        COPY_RESIDUAL_ATTN = 3'b001,
+        COPY_RESIDUAL_MLP  = 3'b010,
+        COPY_TO_K_CACHE    = 3'b011,
+        COPY_TO_V_CACHE    = 3'b100
+    } vecmove_param_t;
 
 endpackage

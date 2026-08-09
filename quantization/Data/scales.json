@@ -60,5 +60,7 @@
     "M_vecop_attn_scale_b_layer0": 7596,
     "M_vecop_attn_scale_b_layer123": 40187,
     "M_vecop_mlp_scale_a": 22927,
-    "M_vecop_mlp_scale_b": 26718
+    "M_vecop_mlp_scale_b": 26718,
+    "S_relu": 16,
+    "M_relu": 41479
 }
