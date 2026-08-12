@@ -1,6 +1,6 @@
 package proj_pkg;
 
-    // base address definitions
+    // scratchpad base address definitions
     parameter int K_CACHE_BASE_ADDR       = 16'h0000;
     parameter int K_LAYER0_BASE_ADDR      = 16'h0000;
     parameter int K_LAYER1_BASE_ADDR      = 16'h1800;
@@ -29,6 +29,13 @@ package proj_pkg;
     parameter int POST_MLP_FC2_BASE_ADDR  = 16'hC700;
 
     parameter int LOGITS_BUFFER_BASE_ADDR = 16'hC800;
+
+
+    // rhyme cache base address definitions
+    parameter int RHYME_GROUP_BASE_ADDR     = 6'd0;
+    parameter int PREV_RHYMES_BASE_ADDR     = 6'd1;
+    parameter int GENERATED_COUNT_BASE_ADDR = 6'd6;
+    parameter int GENERATED_IDS_BASE_ADDR   = 6'd7;
 
 
     // scaling constants, calculated from ./quantization/scaling.py
@@ -103,11 +110,19 @@ package proj_pkg;
     parameter int S_RELU = 16;
     parameter int M_RELU = 41479;
 
+    parameter int S_REPETITION_PENALTY  = 15;
+    parameter int M_RECIP_REPETITION    = 25206;
+    parameter int M_MULTIPLY_REPETITION = 42598;
+
 
     // constants for softmax
     parameter logic signed [15:0] DIFF_LOWER_BOUND = 16'sh8000; // -8 in Q4.12
-    parameter logic [15:0] RECIP_LOWER_BOUND       = 16'h8000;  // 1 in Q1.15         
+    parameter logic [15:0] RECIP_LOWER_BOUND       = 16'h8000;  // 1 in Q1.15
 
+    // token ids for special characters
+    parameter int TOKEN_ID_BOS = 0;
+    parameter int TOKEN_ID_SEP = 2;
+    parameter int TOKEN_ID_UNK = 3;
 
     // typedef enum for matvec
     typedef enum logic [2:0] {  
@@ -148,5 +163,12 @@ package proj_pkg;
         COPY_TO_K_CACHE    = 3'b011,
         COPY_TO_V_CACHE    = 3'b100
     } vecmove_param_t;
+
+    // typedef enum for tone encoding
+    typedef enum logic [3:0] {
+        ANY  = 4'h0,
+        PING = 4'h1,
+        ZE   = 4'h2
+    } tone_t;
 
 endpackage

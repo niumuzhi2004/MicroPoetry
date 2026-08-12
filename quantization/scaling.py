@@ -339,5 +339,23 @@ print(f"relu: \t r: {r} \t S: {S} \t M: {M}")
 
 
 
+##### For repetition penalty #####
+print("\nRepetition penalty:")
+S = 15
+scale_table['S_repetition'] = S
+repetition_penalty = 1.3
+
+r = 1 / repetition_penalty
+M = round(r * 2**S)
+scale_table["M_recip_repetition"] = M
+print(f"reciprocal of repetition: \t r: {r} \t S: {S} \t M: {M}")
+
+r = repetition_penalty
+M = round(r * 2**S)
+scale_table["M_multiply_repetition"] = M
+print(f"multiply by repetition: \t r: {r} \t S: {S} \t M: {M}")
+
+
+
 with open("./Data/scales.json", 'w') as file:
     json.dump(scale_table, file, indent=4)

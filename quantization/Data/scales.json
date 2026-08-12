@@ -62,5 +62,8 @@
     "M_vecop_mlp_scale_a": 22927,
     "M_vecop_mlp_scale_b": 26718,
     "S_relu": 16,
-    "M_relu": 41479
+    "M_relu": 41479,
+    "S_repetition": 15,
+    "M_recip_repetition": 25206,
+    "M_multiply_repetition": 42598
 }
