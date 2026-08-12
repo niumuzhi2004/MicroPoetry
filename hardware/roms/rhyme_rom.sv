@@ -1,4 +1,4 @@
-module template_rom #(
+module rhyme_rom #(
     parameter int VOCAB_SIZE = 3005,
     parameter int DATA_WIDTH = 8
 ) (

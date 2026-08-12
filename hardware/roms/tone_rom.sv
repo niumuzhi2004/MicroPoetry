@@ -1,4 +1,4 @@
-module template_rom #(
+module tone_rom #(
     parameter int PING_CHARS = 1152,
     parameter int ZE_CHARS   = 1848,
     parameter int DATA_WIDTH = 12
