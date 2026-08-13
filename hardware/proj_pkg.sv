@@ -121,8 +121,13 @@ package proj_pkg;
 
     // token ids for special characters
     parameter int TOKEN_ID_BOS = 0;
+    parameter int TOKEN_ID_EOS = 1;
     parameter int TOKEN_ID_SEP = 2;
     parameter int TOKEN_ID_UNK = 3;
+
+    // parameters for LCG random number generation in sampler
+    parameter int LCG_PARAM_A = 1664525;
+    parameter int LCG_PARAM_C = 1013904223;
 
     // typedef enum for matvec
     typedef enum logic [2:0] {  
