@@ -225,7 +225,8 @@ scale_table["M_attn_softmax_diff"] = M
 print(f"attn_softmax diff: \t r: {r} \t S: {S} \t M: {M}")
 
 # final_softmax
-r = activation_scale["final_logits"]
+temperature = 0.6 # folding temperature into final_softmax_diff
+r = activation_scale["final_logits"] / temperature
 M = round(r * 2**S)
 scale_table["M_final_softmax_diff"] = M
 print(f"final_softmax diff: \t r: {r} \t S: {S} \t M: {M}")

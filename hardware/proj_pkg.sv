@@ -90,7 +90,7 @@ package proj_pkg;
     parameter int S_SOFTMAX            = 16;
     parameter int S_SOFTMAX_OUTPUT     = 32;
     parameter int M_ATTN_SOFTMAX_DIFF  = 17963;
-    parameter int M_FINAL_SOFTMAX_DIFF = 9787;
+    parameter int M_FINAL_SOFTMAX_DIFF = 16312;
     parameter int M_EXP_IDX            = 64;
     parameter int M_RECIP_IDX          = 64;
     parameter int M_SOFTMAX_OUTPUT     = 1020;
