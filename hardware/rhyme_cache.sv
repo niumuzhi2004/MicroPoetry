@@ -2,7 +2,7 @@ module rhyme_cache #(
     parameter int ADDR_WIDTH = 6,
     parameter int DATA_WIDTH = 12
 ) ( 
-    input clk,
+    input logic clk,
 
     input  logic wr_en,
     input  logic [ADDR_WIDTH-1:0] addr,

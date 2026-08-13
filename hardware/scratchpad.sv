@@ -2,7 +2,7 @@ module scratchpad #(
     parameter int ADDR_WIDTH = 16,
     parameter int DATA_WIDTH = 8
 ) ( 
-    input clk,
+    input logic clk,
 
     // Port A
     input  logic wr_en_a,
