@@ -45,7 +45,7 @@ module norm #(
                 M_output  = M_EMB_NORM_OUTPUT;
             end
             X_NORM: begin
-                M_ms_real = (layer == 0) ? M_X_NORM_LAYER0_MS_REAL : M_X_NORM_LAYER0123_MS_REAL;
+                M_ms_real = (layer == 0) ? M_X_NORM_LAYER0_MS_REAL : M_X_NORM_LAYER123_MS_REAL;
                 M_idx     = M_X_NORM_IDX;
                 M_output  = (layer == 0) ? M_X_NORM_LAYER0_OUTPUT : M_X_NORM_LAYER123_OUTPUT;
             end
