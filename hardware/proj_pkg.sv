@@ -131,33 +131,37 @@ package proj_pkg;
 
     // typedef enum for matvec
     typedef enum logic [2:0] {  
-        ATTN_WQ = 3'b000,
-        ATTN_WK = 3'b001,
-        ATTN_WV = 3'b010,
-        ATTN_WO = 3'b011,
-        MLP_FC1 = 3'b100,
-        MLP_FC2 = 3'b101,
-        LM_HEAD = 3'b110
+        ATTN_WQ         = 3'b000,
+        ATTN_WK         = 3'b001,
+        ATTN_WV         = 3'b010,
+        ATTN_WO         = 3'b011,
+        MLP_FC1         = 3'b100,
+        MLP_FC2         = 3'b101,
+        LM_HEAD         = 3'b110,
+        MATVEC_SEL_NONE = 3'b111
     } matvec_param_t;
 
     // typedef enum for norm
-    typedef enum logic [1:0] { 
-        X_NORM       = 2'b00,
-        EMB_NORM     = 2'b01,
-        PRE_MLP_NORM = 2'b10,
-        FINAL_NORM   = 2'b11
+    typedef enum logic [2:0] { 
+        X_NORM        = 3'b000,
+        EMB_NORM      = 3'b001,
+        PRE_MLP_NORM  = 3'b010,
+        FINAL_NORM    = 3'b011,
+        NORM_SEL_NONE = 3'b100
     } norm_param_t;
 
     // typedef enum for softmax
-    typedef enum logic {
-        ATTN_SOFTMAX  = 1'b0,
-        FINAL_SOFTMAX = 1'b1
+    typedef enum logic [1:0] {
+        ATTN_SOFTMAX     = 2'b00,
+        FINAL_SOFTMAX    = 2'b01,
+        SOFTMAX_SEL_NONE = 2'b10
     } softmax_param_t;
 
     // typedef enum for vecadd
-    typedef enum logic {
-        ATTN_VEC_SUM = 1'b0,
-        MLP_VEC_SUM  = 1'b1
+    typedef enum logic [1:0] {
+        ATTN_VEC_SUM    = 2'b00,
+        MLP_VEC_SUM     = 2'b01,
+        VECADD_SEL_NONE = 2'b10
     } vecadd_param_t;
 
     // typedef enum for vecmove
@@ -166,7 +170,8 @@ package proj_pkg;
         COPY_RESIDUAL_ATTN = 3'b001,
         COPY_RESIDUAL_MLP  = 3'b010,
         COPY_TO_K_CACHE    = 3'b011,
-        COPY_TO_V_CACHE    = 3'b100
+        COPY_TO_V_CACHE    = 3'b100,
+        VECMOVE_SEL_NONE   = 3'b101
     } vecmove_param_t;
 
     // typedef enum for tone encoding
@@ -175,5 +180,20 @@ package proj_pkg;
         PING = 4'h1,
         ZE   = 4'h2
     } tone_t;
+
+    // typedef enum for actuator select in sequencer
+    typedef enum logic [3:0] {
+        ATTN_SCORE = 4'd0,
+        ATTN_SUM   = 4'd1,
+        EMBED      = 4'd2,
+        MASK       = 4'd3,
+        MATVEC     = 4'd4,
+        NORM       = 4'd5,
+        SAMPLER    = 4'd6,
+        SOFTMAX    = 4'd7,
+        VECADD     = 4'd8,
+        VECMOVE    = 4'd9,
+        SEL_NONE   = 4'd10
+    } actuator_sel_t;
 
 endpackage
