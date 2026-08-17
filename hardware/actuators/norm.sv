@@ -90,13 +90,14 @@ module norm #(
 
     // flip-flop signals
     logic signed [31:0] ms_d, ms_q;
-    logic signed [15:0] ms_real_d, ms_real_q;   // Q6.10
+    logic [15:0] ms_real_d, ms_real_q;   // Q6.10
     logic [$clog2(N_EMBD):0] count_d, count_q;
     logic [ADDR_WIDTH-1:0] addr_odd_d, addr_odd_q;
     logic [ADDR_WIDTH-1:0] addr_even_d, addr_even_q;
     logic signed [47:0] product;                // Q6.26
-    logic signed [15:0] y_d, y_q;               // Q3.13
-    logic signed [47:0] P;                      // Q12.36 (P = ms_real * y^2)
+    logic [15:0] y_d, y_q;                      // Q3.13
+    logic [47:0] ms_y_prod;
+    logic [47:0] P;                             // Q12.36 (P = ms_real * y^2)
     logic signed [15:0] P_scaled;               // Q2.14
     logic signed [31:0] y_unscaled;             // Q5.27
 
@@ -193,9 +194,10 @@ module norm #(
             end
 
             RSQRT: begin
-                P          = ms_real_q * y_q * y_q; // Q12.36
-                P_scaled   = 24576 - (P >> 23);     // Q2.14
-                y_unscaled = y_q * (P_scaled);      // Q5.27
+                ms_y_prod  = ms_real_q * y_q;
+                P          = ms_y_prod * y_q;       // Q12.36
+                P_scaled   = 18'sd24576 - $signed({1'b0, P[47:23]});     // Q2.14
+                y_unscaled = $signed({1'b0, y_q}) * (P_scaled);      // Q5.27
                 y_d        = y_unscaled[29:14];     // Q3.13
                 count_d    = 0;
                 next_state = WRITE;
@@ -206,8 +208,8 @@ module norm #(
                 wr_en_b       = 1'b1;
                 addr_odd_d    = output_base_addr + count_q;
                 addr_even_d   = output_base_addr + count_q + 1;
-                temp_val_odd  = ($signed(x_mem[count_q >> 1][DATA_WIDTH*2-1:DATA_WIDTH]) * y_q * $signed(M_output)) >>> S_NORM;
-                temp_val_even = ($signed(x_mem[count_q >> 1][DATA_WIDTH-1:0]) * y_q * $signed(M_output)) >>> S_NORM;
+                temp_val_odd  = ($signed(x_mem[count_q >> 1][DATA_WIDTH*2-1:DATA_WIDTH]) * $signed({1'b0, y_q}) * $signed(M_output)) >>> S_NORM;
+                temp_val_even = ($signed(x_mem[count_q >> 1][DATA_WIDTH-1:0]) * $signed({1'b0, y_q}) * $signed(M_output)) >>> S_NORM;
                 
                 if (temp_val_odd > 8'sd127)
                     wr_data_a = 8'h7F;
