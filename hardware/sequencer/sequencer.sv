@@ -50,13 +50,11 @@ module sequencer #(
     logic [$clog2(VOCAB_SIZE)-1:0] token_id_d, token_id_q;
     logic [$clog2(BLOCK_SIZE)-1:0] pos_id_d, pos_id_q;
     logic [$clog2(PROGRAM_LEN)-1:0] program_counter_d, program_counter_q;
-    actuator_sel_t actuator_sel_d, actuator_sel_q;
 
     assign token_id        = token_id_q;
     assign pos_id          = pos_id_q;
     assign template_id_out = template_id_in;
-    assign program_counter = program_counter_q;
-    assign actuator_sel    = actuator_sel_d;
+    assign program_counter = program_counter_d;
 
     // FSM states
     typedef enum logic [2:0] {
@@ -72,13 +70,11 @@ module sequencer #(
             token_id_q        <= 0;
             pos_id_q          <= 0;
             program_counter_q <= 0;
-            actuator_sel_q    <= SEL_NONE;
         end else begin
             curr_state        <= next_state;
             token_id_q        <= token_id_d;
             pos_id_q          <= pos_id_d;
             program_counter_q <= program_counter_d;
-            actuator_sel_q    <= actuator_sel_d;
         end
     end
 
@@ -89,7 +85,6 @@ module sequencer #(
         token_id_d        = token_id_q;
         pos_id_d          = pos_id_q;
         program_counter_d = program_counter_q;
-        actuator_sel_d    = actuator_sel_q;
 
         poem_end     = 1'b0;
         reg_wr_en    = 1'b0;
@@ -98,9 +93,12 @@ module sequencer #(
         lcg_wr_en    = 0;
         lcg_wr_data  = 0;
         start        = 0;
-        layer        = 0;
-        head_id      = 0;
-        param        = 0;
+
+        // decode instruction
+        actuator_sel = actuator_sel_t'(instr[10:7]);
+        param        = instr[6:4];
+        layer        = instr[3:2];
+        head_id      = instr[1:0];
 
         case (curr_state)
 
@@ -114,13 +112,8 @@ module sequencer #(
             end
 
             TITLE1: begin
-                // decode instruction
-                start          = 1'b1;
-                actuator_sel_d = actuator_sel_t'(instr[10:7]);
-                param          = instr[6:4];
-                layer          = instr[3:2];
-                head_id        = instr[1:0];
-                next_state     = TITLE2;
+                start      = 1'b1;
+                next_state = TITLE2;
             end
 
             TITLE2: begin
@@ -143,12 +136,8 @@ module sequencer #(
 
             BODY1: begin
                 // decode instruction
-                start          = 1'b1;
-                actuator_sel_d = actuator_sel_t'(instr[10:7]);
-                param          = instr[6:4];
-                layer          = instr[3:2];
-                head_id        = instr[1:0];
-                next_state     = BODY2;
+                start      = 1'b1;
+                next_state = BODY2;
             end
 
             BODY2: begin
