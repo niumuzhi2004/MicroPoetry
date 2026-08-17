@@ -163,6 +163,7 @@ module norm #(
             IDLE: begin
                 if (start) begin
                     count_d     = 0;
+                    ms_d        = 0;
                     addr_odd_d  = input_base_addr;
                     addr_even_d = input_base_addr + 1;
                     next_state  = ADD;
