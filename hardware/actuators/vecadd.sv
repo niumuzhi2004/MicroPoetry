@@ -136,7 +136,7 @@ module vecadd #(
             end
 
             RD2: begin
-                rescaled_b_d = ($signed(rd_data_a) * $signed(M_scale_b)) >>> S_VECADD;
+                rescaled_b_d = ($signed(rd_data_a) * $signed({1'b0, M_scale_b})) >>> S_VECADD;
                 next_state   = WRITE;
             end
 

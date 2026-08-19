@@ -36,8 +36,8 @@ module softmax #(
     always_comb begin
         case (param)
             ATTN_SOFTMAX: begin
-                input_base_addr  = ATTN_LOGITS_BASE_ADDR + head_id * 7'd96;
-                output_base_addr = ATTN_WEIGHTS_BASE_ADDR + head_id * 7'd96;
+                input_base_addr  = ATTN_LOGITS_BASE_ADDR + head_id * BLOCK_SIZE;
+                output_base_addr = ATTN_WEIGHTS_BASE_ADDR + head_id * BLOCK_SIZE;
                 logit_size       = pos_id + 1;
             end
             FINAL_SOFTMAX: begin
@@ -118,7 +118,7 @@ module softmax #(
 
     // FSM states
     typedef enum logic [3:0] {
-        IDLE, MAX, DIFF, EXP1, EXP2, EXP3, EXP4, TOTAL, 
+        IDLE, MAX, DIFF, EXP1, EXP2, EXP3, EXP4, EXP5, TOTAL, 
         RECIP0, RECIP1, RECIP2, RECIP3, RECIP4, WRITE, DONE
     } state_t;
 
@@ -219,7 +219,7 @@ module softmax #(
                     max_even_d = rd_data_b;
                 count_d = count_q + 2;
 
-                if (count_q < logit_size - 2) begin
+                if ((logit_size > 1) && (count_q < logit_size - 2)) begin
                     addr_odd_d  = addr_odd_q + 2;
                     addr_even_d = addr_even_q + 2;
                     next_state  = MAX;
@@ -251,8 +251,11 @@ module softmax #(
                 idx_prod     = shifted_diff * $signed(M_EXP_IDX);
                 idx_d        = idx_prod >> S_SOFTMAX;
                 frac_d       = idx_prod[15:0];
-                if (idx_d > 6'd31)
-                    idx_d = 6'd31; // clamp to [0, 31]
+                if (idx_d > 6'd31) begin
+                    idx_d      = 6'd32;
+                    exp_val_d  = exp_lut_val;
+                    next_state = EXP5;
+                end
 
                 lut_val_s_d  = exp_lut_val;
                 next_state   = EXP2;
@@ -273,12 +276,16 @@ module softmax #(
             EXP4: begin
                 interp_prod   = $signed({1'b0, frac_q}) * lut_val_diff_q;            // Q1.31
                 exp_val_d     = lut_val_s_q + (interp_prod >>> 16); // Q1.15
+                next_state    = EXP5;
+            end
+
+            EXP5: begin
                 exps_mem_we   = 1'b1;
                 exps_mem_addr = count_q >> 1;
                 if (count_q[0] == 1'b1)
-                    exps_mem_wdata = {exps_mem[count_q >> 1][31:16], exp_val_d};
+                    exps_mem_wdata = {exps_mem[count_q >> 1][31:16], exp_val_q};
                 else
-                    exps_mem_wdata = {exp_val_d, exps_mem[count_q >> 1][15:0]};
+                    exps_mem_wdata = {exp_val_q, exps_mem[count_q >> 1][15:0]};
                 next_state    = TOTAL;
             end
 
@@ -362,7 +369,7 @@ module softmax #(
                     wr_data_b = temp_val_even[7:0];
                 
                 count_d = count_q + 2;
-                if (count_q == logit_size - 2)
+                if ((logit_size < 2) || (count_q == logit_size - 2))
                     next_state = DONE;
             end
 

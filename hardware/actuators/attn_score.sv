@@ -44,7 +44,7 @@ module attn_score #(
             2'b11:   k_base_addr = K_LAYER3_BASE_ADDR + head_id * HEAD_DIM;
             default: k_base_addr = K_CACHE_BASE_ADDR;
         endcase
-        output_base_addr = ATTN_LOGITS_BASE_ADDR + head_id * HEAD_DIM;
+        output_base_addr = ATTN_LOGITS_BASE_ADDR + head_id * BLOCK_SIZE;
         logit_size       = pos_id + 1;
     end
 
