@@ -34,7 +34,7 @@ module attn_score #(
 
     // determine input and output addresses in scratchpad
     logic [ADDR_WIDTH-1:0] q_base_addr, k_base_addr, output_base_addr;
-    int logit_size;
+    logic [$clog2(BLOCK_SIZE)-1:0] logit_size;
     always_comb begin
         q_base_addr = Q_BASE_ADDR + head_id * HEAD_DIM;
         case (layer)
@@ -100,6 +100,7 @@ module attn_score #(
         wr_en_b   = 1'b0;
         wr_data_a = 0;
         wr_data_b = 0;
+        temp_val  = 0;
 
         case (curr_state)
 
