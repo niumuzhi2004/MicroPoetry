@@ -156,8 +156,8 @@ module sampler #(
                 addr_c     = GENERATED_IDS_BASE_ADDR + rd_data_c;
                 wr_data_c  = gen_token_q;
 
-                if (((template_id inside {2'd1, 2'd3}) && (rd_data_c == 13)) 
-                || ((template_id inside {2'd2, 2'd4}) && (rd_data_c == 6))) begin
+                if (((template_id inside {2'd0, 2'd2}) && (rd_data_c == 13)) 
+                || ((template_id inside {2'd1, 2'd3}) && (rd_data_c == 6))) begin
                     rhyme_rom_addr = gen_token_q;
                     next_state     = APPEND2;
                 end else begin
