@@ -32,7 +32,7 @@ module softmax #(
 
     // determine input and output addresses in scratchpad and logit size
     logic [ADDR_WIDTH-1:0] input_base_addr, output_base_addr;
-    int logit_size;
+    logic [$clog2(VOCAB_SIZE)-1:0] logit_size;
     always_comb begin
         case (param)
             ATTN_SOFTMAX: begin
@@ -43,6 +43,11 @@ module softmax #(
             FINAL_SOFTMAX: begin
                 input_base_addr  = LOGITS_BUFFER_BASE_ADDR;
                 output_base_addr = LOGITS_BUFFER_BASE_ADDR;
+                logit_size       = VOCAB_SIZE;
+            end
+            default: begin
+                input_base_addr  = SCRATCHPAD_BASE_ADDR;
+                output_base_addr = SCRATCHPAD_BASE_ADDR;
                 logit_size       = VOCAB_SIZE;
             end
         endcase
@@ -93,7 +98,7 @@ module softmax #(
     logic signed [DATA_WIDTH-1:0] max_overall_d, max_overall_q;
     logic [$clog2(VOCAB_SIZE):0] count_d, count_q;
     logic [5:0] idx_d, idx_q;
-    logic signed [15:0] diff_d, diff_q;                     // Q4.12
+    logic signed [20:0] diff_d, diff_q;                     // Q4.12
     logic [15:0] lut_val_s_d, lut_val_s_q;                  // Q1.15
     logic [15:0] lut_val_l_d, lut_val_l_q;                  // Q1.15
     logic signed [15:0] lut_val_diff_d, lut_val_diff_q;     // Q1.15
@@ -101,13 +106,13 @@ module softmax #(
     logic [15:0] exp_val_d, exp_val_q;                      // Q1.15
     logic [31:0] total_d, total_q;                          // Q17.15
     logic [15:0] m_d, m_q;                                  // Q1.15
-    logic signed [15:0] recip_val_d, recip_val_q;           // Q1.15
+    logic signed [16:0] recip_val_d, recip_val_q;           // Q1.15
     logic [2:0] exp_d, exp_q;           // exponent to extract in reciprocal approximation
     logic signed [15:0] raw_diff;       // unscaled diff
-    logic signed [15:0] shifted_diff;   // diff-(-8)           Q4.12
+    logic signed [16:0] shifted_diff;   // diff-(-8)           Q4.12
     logic [15:0] shifted_m;             // m - 1               Q1.15
     logic signed [31:0] diff_prod;
-    logic signed [21:0] idx_prod;                           // Q6.16
+    logic signed [22:0] idx_prod;                           // Q6.16
     logic signed [31:0] interp_prod;                        // Q1.31
     logic signed [63:0] result_prod_odd, result_prod_even;  // Q2.30
 
@@ -115,6 +120,11 @@ module softmax #(
     assign addr_b    = addr_even_d;
     assign exp_idx   = idx_d;
     assign recip_idx = idx_d;
+
+    // to avoid issues with two-lane processing when logit size is odd
+    logic is_second_valid, is_last_pair;
+    assign is_second_valid = ((count_q + 1) < logit_size);
+    assign is_last_pair    = ((count_q + 2) >= logit_size);
 
     // FSM states
     typedef enum logic [3:0] {
@@ -206,6 +216,7 @@ module softmax #(
                     max_even_d    = -8'sd128;
                     max_overall_d = -8'sd128;
                     count_d       = 0;
+                    total_d       = 0;
                     addr_odd_d    = input_base_addr;
                     addr_even_d   = input_base_addr + 1;
                     next_state    = MAX;
@@ -215,11 +226,11 @@ module softmax #(
             MAX: begin
                 if ($signed(rd_data_a) > max_odd_q)
                     max_odd_d = rd_data_a;
-                if ($signed(rd_data_b) > max_even_q)
+                if (is_second_valid && ($signed(rd_data_b) > max_even_q))
                     max_even_d = rd_data_b;
                 count_d = count_q + 2;
 
-                if ((logit_size > 1) && (count_q < logit_size - 2)) begin
+                if (!is_last_pair) begin
                     addr_odd_d  = addr_odd_q + 2;
                     addr_even_d = addr_even_q + 2;
                     next_state  = MAX;
@@ -240,7 +251,7 @@ module softmax #(
                 diff_d    = diff_prod >>> (S_SOFTMAX - 12);
                 if (diff_d < DIFF_LOWER_BOUND) begin
                     exp_val_d  = 0;
-                    next_state = TOTAL;
+                    next_state = EXP5;
                 end else begin
                     next_state = EXP1;
                 end
@@ -331,45 +342,45 @@ module softmax #(
             end
 
             RECIP3: begin
-                lut_val_diff_d = $signed(lut_val_l_q) - $signed(lut_val_s_q);
+                lut_val_diff_d = $signed({1'b0, lut_val_l_q}) - $signed({1'b0, lut_val_s_q});
                 next_state     = RECIP4;
             end
 
             RECIP4: begin
                 interp_prod = $signed({1'b0, frac_q}) * lut_val_diff_q;  // Q1.31
-                recip_val_d = ($signed(lut_val_s_q) + (interp_prod >>> 16)) >>> exp_q; // Q1.15
+                recip_val_d = ($signed({1'b0, lut_val_s_q}) + (interp_prod >>> 16)) >>> exp_q; // Q1.15
                 count_d     = 0;
                 next_state  = WRITE;
             end
 
             WRITE: begin
                 wr_en_a     = 1'b1;
-                wr_en_b     = 1'b1;
+                wr_en_b     = is_second_valid;
                 addr_odd_d  = output_base_addr + count_q;
                 addr_even_d = output_base_addr + count_q + 1;
 
-                result_prod_odd  = $signed(exps_mem[count_q >> 1][31:16]) * recip_val_q * $signed(M_SOFTMAX_OUTPUT);
-                result_prod_even = $signed(exps_mem[count_q >> 1][15:0]) * recip_val_q * $signed(M_SOFTMAX_OUTPUT);
+                result_prod_odd  = $signed({1'b0, exps_mem[count_q >> 1][31:16]}) * recip_val_q * $signed(M_SOFTMAX_OUTPUT);
+                result_prod_even = $signed({1'b0, exps_mem[count_q >> 1][15:0]}) * recip_val_q * $signed(M_SOFTMAX_OUTPUT);
 
                 temp_val_odd  = (result_prod_odd) >>> S_SOFTMAX_OUTPUT;
                 temp_val_even = (result_prod_even) >>> S_SOFTMAX_OUTPUT;
 
-                if (temp_val_odd > 8'd255)
+                if (temp_val_odd > 32'sd255)
                     wr_data_a = 8'hFF;
-                else if (temp_val_odd < 8'd0)
+                else if (temp_val_odd < 32'sd0)
                     wr_data_a = 8'h00;
                 else
                     wr_data_a = temp_val_odd[7:0];
 
-                if (temp_val_even > 8'd255)
+                if (temp_val_even > 32'sd255)
                     wr_data_b = 8'hFF;
-                else if (temp_val_even < 8'd0)
+                else if (temp_val_even < 32'sd0)
                     wr_data_b = 8'h00;
                 else
                     wr_data_b = temp_val_even[7:0];
                 
                 count_d = count_q + 2;
-                if ((logit_size < 2) || (count_q == logit_size - 2))
+                if (is_last_pair)
                     next_state = DONE;
             end
 
