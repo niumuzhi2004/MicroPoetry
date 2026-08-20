@@ -37,7 +37,8 @@ module matvec #(
 );
 
     // determine matrix size
-    int num_of_rows, num_of_cols;
+    logic [$clog2(VOCAB_SIZE)-1:0] num_of_rows;
+    logic [$clog2(4*N_EMBD):0] num_of_cols;
 
     always_comb begin
         if (param == MLP_FC1) begin
@@ -231,11 +232,13 @@ module matvec #(
         acc_odd_d       = acc_odd_q;
         acc_even_d      = acc_even_q;
 
-        done      = 1'b0;
-        wr_en_a   = 1'b0;
-        wr_en_b   = 1'b0;
-        wr_data_a = 0;
-        wr_data_b = 0;
+        done          = 1'b0;
+        wr_en_a       = 1'b0;
+        wr_en_b       = 1'b0;
+        wr_data_a     = 0;
+        wr_data_b     = 0;
+        temp_val_odd  = 0;
+        temp_val_even = 0;
 
         case (curr_state)
 
