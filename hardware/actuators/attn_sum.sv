@@ -34,9 +34,9 @@ module attn_sum #(
 
     // determine input and output addresses in scratchpad
     logic [ADDR_WIDTH-1:0] weights_base_addr, v_base_addr, output_base_addr;
-    int logit_size;
+    logic [$clog2(BLOCK_SIZE)-1:0] logit_size;
     always_comb begin
-        weights_base_addr = ATTN_WEIGHTS_BASE_ADDR;
+        weights_base_addr = ATTN_WEIGHTS_BASE_ADDR + head_id * BLOCK_SIZE;
         case (layer)
             2'b00:   v_base_addr = V_LAYER0_BASE_ADDR + head_id * HEAD_DIM;
             2'b01:   v_base_addr = V_LAYER1_BASE_ADDR + head_id * HEAD_DIM;
@@ -100,6 +100,7 @@ module attn_sum #(
         wr_en_b   = 1'b0;
         wr_data_a = 0;
         wr_data_b = 0;
+        temp_val  = 0;
 
         case (curr_state)
 
