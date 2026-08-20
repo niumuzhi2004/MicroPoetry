@@ -54,7 +54,6 @@ module mask #(
 
     // flip-flop signals
     logic [ADDR_WIDTH-1:0] rd_addr_d, rd_addr_q;
-    logic [ADDR_WIDTH-1:0] wr_addr_d, wr_addr_q;
     logic [$clog2(VOCAB_SIZE)-1:0] count_d, count_q;
     logic [$clog2(VOCAB_SIZE)-1:0] pos_d, pos_q;
     logic [7:0] rhyme_group_d, rhyme_group_q;
@@ -65,6 +64,11 @@ module mask #(
 
     assign addr_a   = rd_addr_d;
     assign tone_sel = tone_sel_d;
+
+    // to avoid issues with over-running
+    logic is_second_valid_rhyme, is_second_valid_tone;
+    assign is_second_valid_rhyme = ((count_q + 1) < VOCAB_SIZE);
+    assign is_second_valid_tone  = ((count_q + 1) < total_tone_ids_q);
 
     // FSM states
     typedef enum logic [3:0] {
@@ -79,7 +83,6 @@ module mask #(
         if (~rst_n) begin
             curr_state         <= IDLE;
             rd_addr_q          <= 0;
-            wr_addr_q          <= 0;
             count_q            <= 0;
             pos_q              <= 0;
             rhyme_group_q      <= 0;
@@ -89,7 +92,6 @@ module mask #(
         end else begin
             curr_state         <= next_state;
             rd_addr_q          <= rd_addr_d;
-            wr_addr_q          <= wr_addr_d;
             count_q            <= count_d;
             pos_q              <= pos_d;
             rhyme_group_q      <= rhyme_group_d;
@@ -104,7 +106,6 @@ module mask #(
         
         next_state         = curr_state;
         rd_addr_d          = rd_addr_q;
-        wr_addr_d          = wr_addr_q;
         count_d            = count_q;
         pos_d              = pos_q;
         rhyme_group_d      = rhyme_group_q;
@@ -116,6 +117,7 @@ module mask #(
         wr_en_a   = 1'b0;
         wr_en_b   = 1'b0;
         wr_en_c   = 1'b0;
+        addr_b    = 0;
         addr_c    = 0;
         wr_data_a = 0;
         wr_data_b = 0;
@@ -136,21 +138,21 @@ module mask #(
 
             BOS: begin
                 wr_en_b    = 1'b1;
-                wr_addr_d  = LOGITS_BUFFER_BASE_ADDR + TOKEN_ID_BOS;
+                addr_b     = LOGITS_BUFFER_BASE_ADDR + TOKEN_ID_BOS;
                 wr_data_b  = 8'h81;  // -127
                 next_state = SEP;
             end
 
             SEP: begin
                 wr_en_b    = 1'b1;
-                wr_addr_d  = LOGITS_BUFFER_BASE_ADDR + TOKEN_ID_SEP;
+                addr_b     = LOGITS_BUFFER_BASE_ADDR + TOKEN_ID_SEP;
                 wr_data_b  = 8'h81;
                 next_state = UNK;
             end
 
             UNK: begin
                 wr_en_b    = 1'b1;
-                wr_addr_d  = LOGITS_BUFFER_BASE_ADDR + TOKEN_ID_UNK;
+                addr_b     = LOGITS_BUFFER_BASE_ADDR + TOKEN_ID_UNK;
                 wr_data_b  = 8'h81;
                 addr_c     = GENERATED_COUNT_BASE_ADDR;
                 next_state = REP0;
@@ -173,7 +175,7 @@ module mask #(
 
             REP2: begin
                 wr_en_b   = 1'b1;
-                wr_addr_d = rd_addr_q;
+                addr_b    = rd_addr_q;
 
                 if (rd_data_a[DATA_WIDTH-1] == 1'b0)
                     temp_val = ($signed(rd_data_a) * $signed(M_RECIP_REPETITION)) >>> S_REPETITION_PENALTY;
@@ -203,8 +205,8 @@ module mask #(
             CHECK: begin
                 count_d = 0;
 
-                if (((template_id inside {2'd1, 2'd3}) && (pos_q inside {27, 41, 55})) 
-                || ((template_id inside {2'd2, 2'd4}) && (pos_q inside {13, 27, 41, 55}))) begin
+                if (((template_id inside {2'd0, 2'd2}) && (pos_q inside {27, 41, 55})) 
+                || ((template_id inside {2'd1, 2'd3}) && (pos_q inside {13, 27, 41, 55}))) begin
                     addr_c     = RHYME_GROUP_BASE_ADDR;
                     next_state = RHYME1;
                 end else begin
@@ -223,12 +225,12 @@ module mask #(
             RHYME2: begin
                 if (rhyme_rom_data_a != rhyme_group_q) begin
                     wr_en_a   = 1'b1;
-                    rd_addr_d = count_q;
+                    rd_addr_d = LOGITS_BUFFER_BASE_ADDR + count_q;
                     wr_data_a = 8'h81;
                 end
                 if (rhyme_rom_data_b != rhyme_group_q) begin
-                    wr_en_b   = 1'b1;
-                    addr_b    = count_q + 1;
+                    wr_en_b   = is_second_valid_rhyme;
+                    addr_b    = LOGITS_BUFFER_BASE_ADDR + count_q + 1;
                     wr_data_b = 8'h81;
                 end
 
@@ -245,7 +247,7 @@ module mask #(
             end
 
             RHYME3: begin
-                if (template_id inside {2'd1, 2'd3}) begin
+                if (template_id inside {2'd0, 2'd2}) begin
                     if (pos_q == 27) prev_rhyme_count_d = 1;
                     if (pos_q == 41) prev_rhyme_count_d = 2;
                     if (pos_q == 55) prev_rhyme_count_d = 3;
@@ -262,7 +264,7 @@ module mask #(
 
             RHYME4: begin
                 wr_en_b    = 1'b1;
-                wr_addr_d  = rd_data_c; // ban repeated rhymes
+                addr_b     = LOGITS_BUFFER_BASE_ADDR + rd_data_c; // ban repeated rhymes
                 wr_data_b  = 8'h81;
                 count_d    = count_q + 1;
 
@@ -297,11 +299,11 @@ module mask #(
 
             TONE2: begin
                 wr_en_a   = 1'b1;
-                rd_addr_d = tone_rom_data_a;
+                rd_addr_d = LOGITS_BUFFER_BASE_ADDR + tone_rom_data_a;
                 wr_data_a = 8'h81;
 
-                wr_en_b   = 1'b1;
-                addr_b    = tone_rom_data_b;
+                wr_en_b   = is_second_valid_tone;
+                addr_b    = LOGITS_BUFFER_BASE_ADDR + tone_rom_data_b;
                 wr_data_b = 8'h81;
 
                 count_d   = count_q + 2;

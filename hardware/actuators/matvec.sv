@@ -178,6 +178,10 @@ module matvec #(
     assign wr_addr_a     = vec_addr_d;
     assign wr_addr_b     = wr_addr_b_d;
 
+    // to avoid issues with over-running
+    logic is_second_valid;
+    assign is_second_valid = ((row_count_q + 1) < num_of_rows);
+
     // FSM states
     typedef enum logic [2:0] {
         IDLE  = 3'b000,
@@ -267,7 +271,7 @@ module matvec #(
 
             WRITE: begin
                 wr_en_a = 1'b1;
-                wr_en_b = 1'b1;
+                wr_en_b = is_second_valid;
                 
                 // apply scaling
                 temp_val_odd = (acc_odd_q * $signed(M_scale)) >>> S_MATVEC;
@@ -291,7 +295,9 @@ module matvec #(
                 acc_even_d      = 32'b0;
                 item_count_d    = 0;
                 row_odd_addr_d  = row_odd_addr_q + num_of_cols + 1;
-                row_even_addr_d = row_even_addr_q + num_of_cols + 1;
+
+                if (is_second_valid)
+                    row_even_addr_d = row_even_addr_q + num_of_cols + 1;
 
                 if (row_count_q < num_of_rows - 2) begin
                     next_state = WAIT;
