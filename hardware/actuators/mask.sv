@@ -195,9 +195,6 @@ module mask #(
                     addr_c     = GENERATED_IDS_BASE_ADDR + count_d;
                     next_state = REP1;
                 end else begin
-                    wr_en_c    = 1'b1;
-                    addr_c     = GENERATED_COUNT_BASE_ADDR;
-                    wr_data_c  = pos_q + 1;
                     next_state = CHECK;
                 end
             end
