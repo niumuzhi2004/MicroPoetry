@@ -130,7 +130,7 @@ module vecadd #(
             end
 
             RD1: begin
-                rescaled_a_d = ($signed(rd_data_a) * $signed(M_scale_a)) >>> S_VECADD;
+                rescaled_a_d = ($signed(rd_data_a) * $signed({1'b0, M_scale_a})) >>> S_VECADD;
                 rd_addr_d    = input_b_base_addr + count_q;
                 next_state   = RD2;
             end

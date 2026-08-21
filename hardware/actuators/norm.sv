@@ -90,7 +90,8 @@ module norm #(
 
     // flip-flop signals
     logic signed [31:0] ms_d, ms_q;
-    logic [15:0] ms_real_d, ms_real_q;   // Q6.10
+    logic [47:0] ms_scaled;
+    logic [19:0] ms_real_d, ms_real_q;   // Q10.10
     logic [$clog2(N_EMBD):0] count_d, count_q;
     logic [ADDR_WIDTH-1:0] addr_odd_d, addr_odd_q;
     logic [ADDR_WIDTH-1:0] addr_even_d, addr_even_q;
@@ -98,8 +99,10 @@ module norm #(
     logic [15:0] y_d, y_q;                      // Q3.13
     logic [47:0] ms_y_prod;
     logic [47:0] P;                             // Q12.36 (P = ms_real * y^2)
-    logic signed [15:0] P_scaled;               // Q2.14
-    logic signed [31:0] y_unscaled;             // Q5.27
+    logic signed [26:0] P_scaled;               // Q13.14
+    logic signed [47:0] y_unscaled;             // Q21.27
+    logic signed [31:0] y_shifted;
+    logic [31:0] raw_idx;
 
     assign addr_a = addr_odd_d;
     assign addr_b = addr_even_d;
@@ -152,6 +155,7 @@ module norm #(
         wr_en_a     = 1'b0;
         wr_en_b     = 1'b0;
         idx         = 5'b0;
+        raw_idx     = 6'd0;
         wr_data_a   = 0;
         wr_data_b   = 0;
         x_mem_we    = 1'b0;
@@ -187,9 +191,11 @@ module norm #(
             end
 
             LUT: begin
-                ms_real_d  = (ms_q * M_ms_real) >>> (S_MS_REAL + $clog2(N_EMBD));
+                ms_scaled  = ms_q * M_ms_real;
+                ms_real_d  = ms_scaled >>> (S_MS_REAL + $clog2(N_EMBD));
                 product    = ms_real_d * M_idx;
-                idx        = product >>> S_NORM;
+                raw_idx    = product >>> S_NORM;
+                idx        = (raw_idx >= 32'd31) ? 5'd31 : raw_idx[4:0];
                 y_d        = lut_output;            // Q3.13
                 next_state = RSQRT;
             end
@@ -197,9 +203,17 @@ module norm #(
             RSQRT: begin
                 ms_y_prod  = ms_real_q * y_q;
                 P          = ms_y_prod * y_q;       // Q12.36
-                P_scaled   = 18'sd24576 - $signed({1'b0, P[47:23]});     // Q2.14
+                P_scaled   = 27'sd24576 - $signed({1'b0, P[47:23]});     // Q13.14
                 y_unscaled = $signed({1'b0, y_q}) * (P_scaled);      // Q5.27
-                y_d        = y_unscaled[29:14];     // Q3.13
+                y_shifted  = y_unscaled >> 14;
+
+                if (y_shifted < 32'sd0)
+                    y_d = 16'd0;
+                else if (y_shifted > 32'sd65535)
+                    y_d = 16'hFFFF;
+                else
+                    y_d = y_shifted[15:0];
+
                 count_d    = 0;
                 next_state = WRITE;
             end
