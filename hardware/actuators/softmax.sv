@@ -66,7 +66,7 @@ module softmax #(
     end
 
     // internal storage of exponential values
-    logic [31:0] exps_mem [VOCAB_SIZE>>1];
+    logic [31:0] exps_mem [(VOCAB_SIZE>>1)+1];
     logic [31:0] exps_mem_wdata;
     logic [$clog2(VOCAB_SIZE>>1)-1:0] exps_mem_addr;
     logic exps_mem_we;
