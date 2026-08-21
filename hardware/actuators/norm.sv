@@ -223,8 +223,8 @@ module norm #(
                 wr_en_b       = 1'b1;
                 addr_odd_d    = output_base_addr + count_q;
                 addr_even_d   = output_base_addr + count_q + 1;
-                temp_val_odd  = ($signed(x_mem[count_q >> 1][DATA_WIDTH*2-1:DATA_WIDTH]) * $signed({1'b0, y_q}) * $signed(M_output)) >>> S_NORM;
-                temp_val_even = ($signed(x_mem[count_q >> 1][DATA_WIDTH-1:0]) * $signed({1'b0, y_q}) * $signed(M_output)) >>> S_NORM;
+                temp_val_odd  = (($signed(x_mem[count_q >> 1][DATA_WIDTH*2-1:DATA_WIDTH]) * $signed({1'b0, y_q}) * $signed(M_output)) + (1 << (S_NORM - 1))) >>> S_NORM;
+                temp_val_even = (($signed(x_mem[count_q >> 1][DATA_WIDTH-1:0]) * $signed({1'b0, y_q}) * $signed(M_output)) + (1 << (S_NORM - 1))) >>> S_NORM;
                 
                 if (temp_val_odd > 8'sd127)
                     wr_data_a = 8'h7F;
