@@ -73,8 +73,8 @@ module vecadd #(
     // flip-flop signals
     logic [ADDR_WIDTH-1:0] rd_addr_d, rd_addr_q;
     logic [$clog2(N_EMBD)-1:0] count_d, count_q;
-    logic signed [31:0] rescaled_a_d, rescaled_a_q;
-    logic signed [31:0] rescaled_b_d, rescaled_b_q;
+    logic signed [31:0] product_a_d, product_a_q;
+    logic signed [31:0] product_b_d, product_b_q;
     logic signed [31:0] temp_val;
 
     assign addr_a = rd_addr_d;
@@ -89,17 +89,17 @@ module vecadd #(
     // FSM sequential logic
     always_ff @(posedge clk) begin
         if (~rst_n) begin
-            curr_state   <= IDLE;
-            rd_addr_q    <= 0;
-            count_q      <= 0;
-            rescaled_a_q <= 32'd0;
-            rescaled_b_q <= 32'd0;
+            curr_state  <= IDLE;
+            rd_addr_q   <= 0;
+            count_q     <= 0;
+            product_a_q <= 32'd0;
+            product_b_q <= 32'd0;
         end else begin
-            curr_state   <= next_state;
-            rd_addr_q    <= rd_addr_d;
-            count_q      <= count_d;
-            rescaled_a_q <= rescaled_a_d;
-            rescaled_b_q <= rescaled_b_d;
+            curr_state  <= next_state;
+            rd_addr_q   <= rd_addr_d;
+            count_q     <= count_d;
+            product_a_q <= product_a_d;
+            product_b_q <= product_b_d;
         end
     end
 
@@ -109,8 +109,8 @@ module vecadd #(
         next_state   = curr_state;
         rd_addr_d    = rd_addr_q;
         count_d      = count_q;
-        rescaled_a_d = rescaled_a_q;
-        rescaled_b_d = rescaled_b_q;
+        product_a_d = product_a_q;
+        product_b_d = product_b_q;
 
         done      = 1'b0;
         wr_en_a   = 1'b0;
@@ -130,20 +130,20 @@ module vecadd #(
             end
 
             RD1: begin
-                rescaled_a_d = ($signed(rd_data_a) * $signed({1'b0, M_scale_a})) >>> S_VECADD;
-                rd_addr_d    = input_b_base_addr + count_q;
-                next_state   = RD2;
+                product_a_d = $signed(rd_data_a) * $signed({1'b0, M_scale_a});
+                rd_addr_d   = input_b_base_addr + count_q;
+                next_state  = RD2;
             end
 
             RD2: begin
-                rescaled_b_d = ($signed(rd_data_a) * $signed({1'b0, M_scale_b})) >>> S_VECADD;
-                next_state   = WRITE;
+                product_b_d = $signed(rd_data_a) * $signed({1'b0, M_scale_b});
+                next_state  = WRITE;
             end
 
             WRITE: begin
                 addr_b   = output_base_addr + count_q;
                 wr_en_b  = 1'b1;
-                temp_val = rescaled_a_q + rescaled_b_q;
+                temp_val = ((product_a_q + product_b_q) + (1 <<< (S_VECADD - 1))) >>> S_VECADD;
 
                 if (temp_val > 8'sd127)
                     wr_data_b = 8'h7F;

@@ -277,7 +277,7 @@ module matvec #(
                 wr_en_b = is_second_valid;
                 
                 // apply scaling
-                temp_val_odd = (acc_odd_q * $signed(M_scale)) >>> S_MATVEC;
+                temp_val_odd = ((acc_odd_q * $signed(M_scale)) + (1 <<< (S_MATVEC - 1))) >>> S_MATVEC;
                 if (temp_val_odd > 8'sd127)
                     wr_data_a = 8'h7F;
                 else if (temp_val_odd < -8'sd127)
@@ -285,7 +285,7 @@ module matvec #(
                 else
                     wr_data_a = temp_val_odd[7:0];
 
-                temp_val_even = (acc_even_q * $signed(M_scale)) >>> S_MATVEC;
+                temp_val_even = ((acc_even_q * $signed(M_scale)) + (1 <<< (S_MATVEC - 1))) >>> S_MATVEC;
                 if (temp_val_even > 8'sd127)
                     wr_data_b = 8'h7F;
                 else if (temp_val_even < -8'sd127)
