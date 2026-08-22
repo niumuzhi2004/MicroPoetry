@@ -581,10 +581,14 @@ module engine_top #(
 
     mlp_fc1_rom mlp_fc1_rom_inst (
         .clk(clk),
+        .wr_en_a(1'b0),
+        .wr_data_a(8'b0),
         .addr_a(wrom_addr_a_matvec),
-        .data_a(data_a_mlp_fc1),
+        .rd_data_a(data_a_mlp_fc1),
+        .wr_en_b(1'b0),
+        .wr_data_b(8'b0),
         .addr_b(wrom_addr_b_matvec),
-        .data_b(data_b_mlp_fc1)
+        .rd_data_b(data_b_mlp_fc1)
     );
 
     // mlp_fc2 rom
@@ -592,10 +596,14 @@ module engine_top #(
 
     mlp_fc2_rom mlp_fc2_rom_inst (
         .clk(clk),
+        .wr_en_a(1'b0),
+        .wr_data_a(8'b0),
         .addr_a(wrom_addr_a_matvec),
-        .data_a(data_a_mlp_fc2),
+        .rd_data_a(data_a_mlp_fc2),
+        .wr_en_b(1'b0),
+        .wr_data_b(8'b0),
         .addr_b(wrom_addr_b_matvec),
-        .data_b(data_b_mlp_fc2)
+        .rd_data_b(data_b_mlp_fc2)
     );
 
     // rhyme rom
@@ -639,10 +647,14 @@ module engine_top #(
     logic [DATA_WIDTH-1:0] data_a_wte_rom, data_b_wte_rom;
     wte_rom wte_rom_inst (
         .clk(clk),
+        .wr_en_a(1'b0),
+        .wr_data_a(8'b0),
         .addr_a(addr_a_wte_rom),
-        .data_a(data_a_wte_rom),
+        .rd_data_a(data_a_wte_rom),
+        .wr_en_b(1'b0),
+        .wr_data_b(8'b0),
         .addr_b(addr_b_wte_rom),
-        .data_b(data_b_wte_rom)
+        .rd_data_b(data_b_wte_rom)
     );
 
 
