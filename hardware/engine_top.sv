@@ -1,6 +1,9 @@
 import proj_pkg::*;
 
 module engine_top #(
+    parameter int C_S_AXI_ADDR_WIDTH = 9,
+    parameter int C_S_AXI_DATA_WIDTH = 32,
+
     parameter int LAYER_NUM = 4,
     parameter int N_HEAD = 4,
     parameter int BLOCK_SIZE = 96,
@@ -12,13 +15,33 @@ module engine_top #(
     parameter int POEM_LEN = 56,
     parameter int PROGRAM_LEN = 115,
     parameter int INSTR_WIDTH = 12,
-    parameter int TITLE_SIZE  = 20,
+    parameter int TITLE_SIZE  = 12,
     parameter int VOCAB_SIZE  = 3005
 ) (
-    input logic clk,
-    input logic rst_n,
-    input logic poem_start_top
+    input  logic  S_AXI_ACLK,
+    input  logic  S_AXI_ARESETN,
+    input  logic  [C_S_AXI_ADDR_WIDTH-1:0] S_AXI_AWADDR,
+    input  logic  S_AXI_AWVALID,
+    output logic  S_AXI_AWREADY,
+    input  logic  [C_S_AXI_DATA_WIDTH-1:0] S_AXI_WDATA,
+    input  logic  [3:0] S_AXI_WSTRB,
+    input  logic  S_AXI_WVALID,
+    output logic  S_AXI_WREADY,
+    input  logic  [C_S_AXI_ADDR_WIDTH-1:0] S_AXI_ARADDR,
+    input  logic  S_AXI_ARVALID,
+    output logic  S_AXI_ARREADY,
+    output logic  [C_S_AXI_DATA_WIDTH-1:0] S_AXI_RDATA,
+    output logic  [1:0] S_AXI_RRESP,
+    output logic  S_AXI_RVALID,
+    input  logic  S_AXI_RREADY,
+    output logic  [1:0] S_AXI_BRESP,
+    output logic  S_AXI_BVALID,
+    input  logic  S_AXI_BREADY
 );
+
+    logic clk, rst_n;
+    assign clk = S_AXI_ACLK;
+    assign rst_n = S_AXI_ARESETN;
 
     // attn_score
 
@@ -645,8 +668,25 @@ module engine_top #(
     logic [$clog2(VOCAB_SIZE)-1:0] gen_token;
 
     regfile regfile_inst (
-        .clk(clk),
-        .rst_n(rst_n),
+        .S_AXI_ACLK(clk),
+        .S_AXI_ARESETN(rst_n),
+        .S_AXI_AWADDR(S_AXI_AWADDR),
+        .S_AXI_AWVALID(S_AXI_AWVALID),
+        .S_AXI_AWREADY(S_AXI_AWREADY),
+        .S_AXI_WDATA(S_AXI_WDATA),
+        .S_AXI_WSTRB(S_AXI_WSTRB),
+        .S_AXI_WVALID(S_AXI_WVALID),
+        .S_AXI_WREADY(S_AXI_WREADY),
+        .S_AXI_ARADDR(S_AXI_ARADDR),
+        .S_AXI_ARVALID(S_AXI_ARVALID),
+        .S_AXI_ARREADY(S_AXI_ARREADY),
+        .S_AXI_RDATA(S_AXI_RDATA),
+        .S_AXI_RRESP(S_AXI_RRESP),
+        .S_AXI_RVALID(S_AXI_RVALID),
+        .S_AXI_RREADY(S_AXI_RREADY),
+        .S_AXI_BRESP(S_AXI_BRESP),
+        .S_AXI_BVALID(S_AXI_BVALID),
+        .S_AXI_BREADY(S_AXI_BREADY),
         .template_id(template_id_in),
         .title(title),
         .title_len(title_len),
@@ -682,7 +722,7 @@ module engine_top #(
         .title(title),
         .title_len(title_len),
         .lcg_seed(lcg_seed),
-        .poem_start(poem_start_top),
+        .poem_start(poem_start),
         .poem_end(poem_end),
         .reg_wr_en(reg_wr_en),
         .gen_pos(gen_pos),
@@ -760,12 +800,14 @@ module engine_top #(
         layer_vecadd     = 0;
         param_vecadd     = VECADD_SEL_NONE;
         rd_data_a_vecadd = 0;
+        rd_data_b_vecadd = 0;
 
         start_vecmove     = 1'b0;
         layer_vecmove     = 0;
         pos_id_vecmove    = 0;
         param_vecmove     = VECMOVE_SEL_NONE;
         rd_data_a_vecmove = 0;
+        rd_data_b_vecmove = 0;
 
         wr_en_lcg   = lcg_wr_en_sequencer;
         wr_data_lcg = lcg_wr_data_sequencer;
@@ -955,6 +997,11 @@ module engine_top #(
                 addr_b_scratchpad    = addr_b_vecmove;
                 wr_data_b_scratchpad = wr_data_b_vecmove;
             end
+
+            default: begin
+                // do nothing
+            end
+
         endcase
 
         if (actuator_sel == MATVEC) begin

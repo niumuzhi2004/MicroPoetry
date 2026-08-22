@@ -79,7 +79,6 @@ module regfile #(
     assign title_len   = title_len_q;
     assign lcg_seed    = lcg_seed_q;
     assign poem_start  = poem_start_q;
-    assign poem_end_d  = poem_end;
 
     // FSM states
     typedef enum logic [1:0] {
@@ -127,12 +126,10 @@ module regfile #(
         title_len_d  = title_len_q;
         lcg_seed_d   = lcg_seed_q;
         poem_start_d = poem_start_q;
-        poem_end_d   = poem_end_q;
         poem_idx     = 0;
 
-        if (poem_start_q == 1'b1) begin
+        if (poem_start_q == 1'b1)
             poem_start_d = 1'b0;
-        end
 
         S_AXI_AWREADY = 0;
         S_AXI_WREADY  = 0;
