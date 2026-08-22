@@ -23,13 +23,8 @@ module tone_rom #(
         $readmemh("tone_ze.hex",   ze_rom);
     end
 
-    // Port A logic
     always_ff @(posedge clk) begin
         data_a <= tone_sel ? ping_rom[addr_a] : ze_rom[addr_a];
-    end
-
-    // Port B logic
-    always_ff @(posedge clk) begin
         data_b <= tone_sel ? ping_rom[addr_b] : ze_rom[addr_b];
     end
     

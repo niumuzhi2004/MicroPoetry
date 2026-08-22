@@ -20,13 +20,8 @@ module attn_wk_rom #(
         $readmemh("attn_wk_weight.hex", rom);
     end
 
-    // Port A logic
     always_ff @(posedge clk) begin
         data_a <= rom[addr_a];
-    end
-
-    // Port B logic
-    always_ff @(posedge clk) begin
         data_b <= rom[addr_b];
     end
     

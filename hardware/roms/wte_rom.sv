@@ -22,9 +22,6 @@ module wte_rom #(
 
     always_ff @(posedge clk) begin
         data_a <= rom[addr_a];
-    end
-
-    always_ff @(posedge clk) begin
         data_b <= rom[addr_b];
     end
     
