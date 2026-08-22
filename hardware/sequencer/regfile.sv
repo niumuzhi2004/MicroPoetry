@@ -128,8 +128,14 @@ module regfile #(
         poem_start_d = poem_start_q;
         poem_idx     = 0;
 
-        if (poem_start_q == 1'b1)
+        if (poem_start_q)
             poem_start_d = 1'b0;
+        
+        if (poem_end)
+            poem_end_d = 1'b1;
+        
+        if (poem_start_d)
+            poem_end_d = 1'b0;
 
         S_AXI_AWREADY = 0;
         S_AXI_WREADY  = 0;
