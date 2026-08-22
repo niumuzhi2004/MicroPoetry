@@ -2,6 +2,7 @@ import proj_pkg::*;
 
 module sampler #(
     parameter int VOCAB_SIZE = 3005,
+    parameter int POEM_LEN   = 56,
     parameter int ADDR_WIDTH = 16,
     parameter int DATA_WIDTH = 8
 ) (
@@ -244,7 +245,7 @@ module sampler #(
 
             DONE: begin
                 done       = 1'b1;
-                end_poem   = (gen_token_q == TOKEN_ID_EOS) ? 1'b1 : 1'b0;
+                end_poem   = (gen_token_q == TOKEN_ID_EOS) || (pos_q >= POEM_LEN - 1);
                 next_state = IDLE;
             end
             
