@@ -3,7 +3,7 @@ import proj_pkg::*;
 module sequencer #(
     parameter int VOCAB_SIZE  = 3005,
     parameter int BLOCK_SIZE  = 96,
-    parameter int TITLE_SIZE  = 20,
+    parameter int TITLE_SIZE  = 12,
     parameter int LCG_WIDTH   = 32,
     parameter int LAYER_NUM   = 4,
     parameter int N_HEAD      = 4,
