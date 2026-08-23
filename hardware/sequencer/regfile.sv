@@ -126,6 +126,7 @@ module regfile #(
         title_len_d  = title_len_q;
         lcg_seed_d   = lcg_seed_q;
         poem_start_d = poem_start_q;
+        poem_end_d   = poem_end_q;
         poem_idx     = 0;
 
         if (poem_start_q)
