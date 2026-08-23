@@ -621,8 +621,8 @@ module engine_top #(
     // template rom
     template_rom template_rom_inst (
         .clk(clk),
-        .addr_a(template_rom_addr_mask),
-        .data_a(template_rom_data_mask)
+        .addr(template_rom_addr_mask),
+        .data(template_rom_data_mask)
     );
 
     // tone rom
