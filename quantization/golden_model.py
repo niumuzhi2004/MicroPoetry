@@ -560,28 +560,28 @@ m_table = {
 
 
 # ROM contents used by golden_mask / golden_sampler
-template_rom = load_hex("../../../quantization/Data/templates.hex")
-rhyme_rom    = load_hex("../../../quantization/Data/rhyme.hex")
-tone_ping    = load_hex("../../../quantization/Data/tone_ping.hex")
-tone_ze      = load_hex("../../../quantization/Data/tone_ze.hex")
+template_rom = load_hex("./Data/templates.hex")
+rhyme_rom    = load_hex("./Data/rhyme.hex")
+tone_ping    = load_hex("./Data/tone_ping.hex")
+tone_ze      = load_hex("./Data/tone_ze.hex")
 
-with open("../../../quantization/Data/softmax.json", 'r') as file:
+with open("./Data/softmax.json", 'r') as file:
     softmax_LUTs = json.load(file)
 
-with open("../../../quantization/Data/rmsnorm.json", 'r') as file:
+with open("./Data/rmsnorm.json", 'r') as file:
     norm_LUTs = json.load(file)["luts"]
 
-q_wpe = load_int8_hex("../../../quantization/Data/wpe_weight.hex", (block_size, n_embd))
-q_wte = load_int8_hex("../../../quantization/Data/wte_weight.hex", (vocab_size, n_embd))
+q_wpe = load_int8_hex("./Data/wpe_weight.hex", (block_size, n_embd))
+q_wte = load_int8_hex("./Data/wte_weight.hex", (vocab_size, n_embd))
 
-W_attn_wq = load_int8_hex("attn_wq_weight.hex", (n_layer, n_embd, n_embd))
-W_attn_wk = load_int8_hex("attn_wk_weight.hex", (n_layer, n_embd, n_embd))
-W_attn_wv = load_int8_hex("attn_wv_weight.hex", (n_layer, n_embd, n_embd))
-W_attn_wo = load_int8_hex("attn_wo_weight.hex", (n_layer, n_embd, n_embd))
-W_mlp_fc1 = load_int8_hex("mlp_fc1_weight.hex", (n_layer, 4 * n_embd, n_embd))
-W_mlp_fc2 = load_int8_hex("mlp_fc2_weight.hex", (n_layer, n_embd, 4 * n_embd))
+W_attn_wq = load_int8_hex("./Data/attn_wq_weight.hex", (n_layer, n_embd, n_embd))
+W_attn_wk = load_int8_hex("./Data/attn_wk_weight.hex", (n_layer, n_embd, n_embd))
+W_attn_wv = load_int8_hex("./Data/attn_wv_weight.hex", (n_layer, n_embd, n_embd))
+W_attn_wo = load_int8_hex("./Data/attn_wo_weight.hex", (n_layer, n_embd, n_embd))
+W_mlp_fc1 = load_int8_hex("./Data/mlp_fc1_weight.hex", (n_layer, 4 * n_embd, n_embd))
+W_mlp_fc2 = load_int8_hex("./Data/mlp_fc2_weight.hex", (n_layer, n_embd, 4 * n_embd))
 
-with open("../../../model/Data/token_id.json", 'r', encoding='utf-8') as file:
+with open("../model/Data/token_id.json", 'r', encoding='utf-8') as file:
     token_id_map = json.load(file)
 
 M_WTE, M_WPE, S_GLOBAL = 222, 55, 8
