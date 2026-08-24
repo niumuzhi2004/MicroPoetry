@@ -10,6 +10,12 @@ module rhyme_cache #(
     output logic [DATA_WIDTH-1:0] rd_data
 );
 
+    // Address Map:
+    // 0:       rhyme group for poem
+    // 1-5:     previous rhyming characters (to avoid repetition)
+    // 6:       number of completed tokens (0-56)
+    // 7-62:    previously generated tokens (to penalize repetition)
+
     logic [DATA_WIDTH-1:0] mem [0:2**ADDR_WIDTH-1];
 
     always_ff @(posedge clk) begin

@@ -4,11 +4,32 @@ This projects extends Andrej Karpathy's **[microgpt](https://karpathy.github.io/
 We target specifically at the 七言律诗 (seven-character regulated verse) format, where a poem contains 8 lines, with each line containing 7 characters. 
 The main goal of the project is to build an inference engine in RTL for the quantized transformer model, implemented on a Xilinx Zynq-7020 FPGA. 
 
+## Hardware
+
+The hardware architecture is inspired by Fabio Guzman's **[gateGPT](https://github.com/fguzman82/gateGPT/tree/main)**. The PS side initiates the poem generation by sending over the poem title, LCG random seed, and which template to use. The sequencer reads the information from the register file and starts the actuators, one at a time. The entire sequence is encoded in a program generated from [Python code](./hardware/sequencer/program.py). 
+
+![Hardware Architecture](./.github/architecture.svg)
+
+| Actuator | Explanation |
+|--------|-------------|
+|`attn_score`| `q`, `k` dot product to compute `attn_logits` |
+|`attn_sum`| `attn_weights`, `v` dot product to compute `head_out` |
+|`embed`| token & position embedding lookup & addition |
+|`mask`| apply tone and rhyme constraints based on template entry |
+|`matvec`| matrix-vector multiplication unit for `linear()` |
+|`norm`| `rmsnorm()` using LUT + 1 Newton-Raphson iteration for reciprocal square root|
+|`sampler`| LCG for random sampling to get output token|
+|`softmax`| `softmax()` using LUT + interpolation for `exp()` and for division by total|
+|`vecadd`| vector addition |
+|`vecmove`| copying vector to a different address; computing ReLU |
+
+The ROMs are mostly dual-port for storing weights, templates, rhyme groups, and tone groups. The LCG cache stores and updates the LCG state. The rhyme cache stores the rhyme group, previous rhyming characters and tracks the generated tokens. The scratchpad is a dual-port RAM that stores the KV cache and activations in-progress. 
+
+Results are verified against a bit-exact [Python model](./quantization/golden_model.py).
+
 ## Model
 
-The model is adjusted from microgpt to support batch training using PyTorch, retaining the multi-head attention transformer architecture while increasing the number of layers to 4.  
-
-The training data contains 68968 poems from Tang and Song dynasties, all in the format of 七言律诗 (seven-character regulated verse). Due to hardware constraints, top 3000 most frequent characters are used as the vocabulary, with rare characters replaced by a special token `<UNK>`. The start and end of poem are marked by `<BOS>` and `<EOS>` tokens, respectively, and the title and body of the poem are separated by `<SEP>`. There is also a `<PAD>` token that is currently unused but reserved for future use, if needed. This yields a total vocabulary size of 3005. To avoid too long titles, the maximum title length is set to 20 characters. 
+The model is modified from Andrej Karpathy's **[microgpt](https://karpathy.github.io/2026/02/12/microgpt/)** to pump the parameter size up. The training data contains 68968 poems from Tang and Song dynasties, all in the format of 七言律诗 (seven-character regulated verse). The vocabulary consists of the top 3000 most frequent characters along with several special tokens. 
 
 | Parameter | Value | Explanation |
 |-----------|-------|-------------|
@@ -16,11 +37,11 @@ The training data contains 68968 poems from Tang and Song dynasties, all in the 
 | `n_embd` | 64 | Embedding dimension |
 | `n_head` | 4 | Number of attention heads |
 | `n_layer` | 4 | Number of transformer layers |
-| `block_size` | 96 | Maximum sequence length (title + 56-char body + special tokens, with margin) |
+| `block_size` | 96 | Maximum sequence length (title + body + special tokens, with margin) |
 | Parameter Size | 395,702 | Total number of trainable parameters |
-| Weight Tying | On | Input token embedding weights tied to language model head weights |
+| Weight Tying | On | Input token embedding weights tied to LM head weights |
 
-The model is trained with a batch size of 64 until the validation loss stabilizes. Inference remains sequential with the following constraints applied:
+Inference remains sequential with the following constraints applied:
 
 - The tone (平仄) of the characters must satisfy the [tonal patterns](./model/Data/templates.json) of 七言律诗 (seven-character regulated verse).
 - The characters that rhyme must belong to the same 平水韵 (Ping Shui Yun) [rhyme group](./model/Data/rhyme_table.json).
@@ -29,19 +50,32 @@ The rhyming characters are restricted not to repeat, and repetition in general i
 
 ## Quantization
 
-With the model trained in `Float32`, we explored how quantization in inference affects the quality of the generated poems, which is evaluated by the validation loss. The model weights are first quantized to `INT8`, `INT4`, and a mixed precision of `INT8` for embedding and `INT4` for the transformer layers. For each of the data types, we applied per-channel and per-tensor quantization. For each of the quantization schemes, we evaluated the validation loss on 100 randomly selected batches of size 64 from the validation set. The results are summarized below:
+To reduce computation cost and memory footprint, the model [weights](./quantization/weight_quantization.ipynb) are quantized to `INT8` per-tensor, along with the [activations](./quantization/activation_quantization.ipynb). The table shows the impact of quantization on model loss.
 
-| Quantization Scheme | Validation Loss | Memory Footprint |
-|---------------------|-----------------|------------------|
-| `float32`           | ~4.905          | ~1.54MB          |
-| `INT8` per-channel  | ~4.886          | ~407KB           |
-| `INT8` per-tensor   | ~4.896          | ~386KB           |
-| Mixed per-channel   | ~5.057          | ~311KB           |
-| Mixed per-tensor    | ~5.541          | ~290KB           |
-| `INT4`per-channel   | ~5.134          | ~214KB           |
-| `INT4`per-tensor    | ~8.344          | ~193KB           |
+| Quantization Scheme | Validation Loss |
+|---------------------|-----------------|
+| FP32 weights, FP32 activations | ~4.821 |
+| INT8 weights, FP32 activations | ~4.826 |
+| INT8 weights, INT8 activations | ~4.935 |
 
-`INT8` per-channel and per-tensor quantizations show similar performance compared to the `float32`. Here we choose `INT8` per-tensor quantization for its memory efficiency, with a footprint of ~386KB, which is within the 560KB on-chip BRAM available on the Zynq-7020 FPGA. Per-tensor `INT8` quantization is performed for the activations as well. 
+The numbers are for estimations only and may vary with different validation sets. At each quantization boundary, the activations are rescaled using an integer multiply + right shift pair `(M, S)` such that `rescaled_activation ≈ (raw_value x M) >> S`. The scaling constants are calculated [here](./quantization/scaling.py). 
+
+## Performance
+
+| Iteration | Description | Token/s | Frequency | LUT | Registers | BRAM | DSP |
+|-----------|-------------|---------|-----------|-----|-----------|------|-----|
+| 0 | First core | ~212 | 50 MHz | 8066 | 2549 | 112 | 27 |
+
+## Usage
+
+To assemble the Vivado project:
+```tcl
+vivado -source .\MicroPoetry\create_project.tcl
+```
+
+To assemble the Vitis project:
+1. Create a standalone platform against `.\MicroPoetry\poem_wrapper.xsa`
+2. Add files `.\MicroPoetry\app\src\main.c` and `token_id.h` to source
 
 ## Acknowledgments
 
