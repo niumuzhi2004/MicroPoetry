@@ -37,7 +37,6 @@ Training.ipynb
 # Vivado
 *.gen/
 *.xpr
-*.xsa
 *.pb
 *.wdb
 *.wcfg
