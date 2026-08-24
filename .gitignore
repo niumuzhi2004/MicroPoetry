@@ -57,3 +57,7 @@ Training.ipynb
 .metadata/
 **/Debug/
 **/Release/
+*.cmake
+**/CMakeLists.txt
+*.ld
+**/vitis-comp.json
