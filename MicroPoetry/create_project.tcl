@@ -20,7 +20,7 @@
 proc checkRequiredFiles { origin_dir} {
   set status true
   set files [list \
- "[file normalize "$origin_dir/MicroPoetry.srcs/sources_1/new/engine_wrapper.v"]"\
+ "[file normalize "$origin_dir/../hardware/engine_wrapper.v"]"\
   ]
   foreach ifile $files {
     if { ![file isfile $ifile] } {
@@ -252,7 +252,7 @@ add_files -norecurse -fileset $obj $files
 
 # Import local files from the original project
 set files [list \
- [file normalize "${origin_dir}/MicroPoetry.srcs/sources_1/new/engine_wrapper.v" ]\
+ [file normalize "${origin_dir}/../hardware/engine_wrapper.v" ]\
 ]
 set imported_files ""
 foreach f $files {
@@ -627,7 +627,7 @@ if { [get_files [list wte_rom.sv]] == "" } {
   import_files -quiet -fileset sources_1 C:/Users/niumu/SLM/hardware/roms/wte_rom.sv
 }
 if { [get_files [list engine_wrapper.v]] == "" } {
-  import_files -quiet -fileset sources_1 C:/Users/niumu/SLM/MicroPoetry/MicroPoetry.srcs/sources_1/new/engine_wrapper.v
+  import_files -quiet -fileset sources_1 C:/Users/niumu/SLM/hardware/engine_wrapper.v
 }
 
 
