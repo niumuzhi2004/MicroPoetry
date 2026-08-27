@@ -33,17 +33,16 @@ module embed #(
     logic [$clog2(VOCAB_SIZE*N_EMBD)-1:0] wte_addr_d, wte_addr_q;
     logic [$clog2(BLOCK_SIZE*N_EMBD)-1:0] wpe_addr_d, wpe_addr_q;
     logic [ADDR_WIDTH-1:0] wr_addr_d, wr_addr_q;
-    logic signed [31:0] temp_val;  // used for clamping when scaling
+    logic signed [23:0] temp_val_a_d, temp_val_a_q, temp_val_b_d, temp_val_b_q;
+    logic signed [23:0] temp_val_d, temp_val_q;  // used for clamping when scaling
 
     assign wte_addr = wte_addr_d;
     assign wpe_addr = wpe_addr_d;
     assign wr_addr  = wr_addr_q;
 
     // FSM states
-    typedef enum logic [1:0] {
-        IDLE  = 2'b00,
-        WRITE = 2'b01,
-        DONE  = 2'b10
+    typedef enum logic [2:0] {
+        IDLE, WRITE1, WRITE2, WRITE3, DONE
     } state_t;
 
     state_t curr_state, next_state;
@@ -51,33 +50,41 @@ module embed #(
     // FSM sequential logic
     always_ff @(posedge clk) begin
         if (~rst_n) begin
-            curr_state <= IDLE;
-            count_q    <= 0;
-            wte_addr_q <= 0;
-            wpe_addr_q <= 0;
-            wr_addr_q  <= 0;
+            curr_state   <= IDLE;
+            count_q      <= 0;
+            wte_addr_q   <= 0;
+            wpe_addr_q   <= 0;
+            wr_addr_q    <= 0;
+            temp_val_a_q <= 0;
+            temp_val_b_q <= 0;
+            temp_val_q   <= 0;
         end else begin
-            curr_state <= next_state;
-            count_q    <= count_d;
-            wte_addr_q <= wte_addr_d;
-            wpe_addr_q <= wpe_addr_d;
-            wr_addr_q  <= wr_addr_d;
+            curr_state   <= next_state;
+            count_q      <= count_d;
+            wte_addr_q   <= wte_addr_d;
+            wpe_addr_q   <= wpe_addr_d;
+            wr_addr_q    <= wr_addr_d;
+            temp_val_a_q <= temp_val_a_d;
+            temp_val_b_q <= temp_val_b_d;
+            temp_val_q   <= temp_val_d;
         end
     end
 
     // FSM combinational logic 
     always_comb begin
 
-        next_state = curr_state;
-        count_d    = count_q;
-        wte_addr_d = wte_addr_q;
-        wpe_addr_d = wpe_addr_q;
-        wr_addr_d  = wr_addr_q;
+        next_state   = curr_state;
+        count_d      = count_q;
+        wte_addr_d   = wte_addr_q;
+        wpe_addr_d   = wpe_addr_q;
+        wr_addr_d    = wr_addr_q;
+        temp_val_a_d = temp_val_a_q;
+        temp_val_b_d = temp_val_b_q;
+        temp_val_d   = temp_val_q;
 
-        done     = 1'b0;
-        wr_en    = 1'b0;
-        wr_data  = 0;
-        temp_val = 0;
+        done       = 1'b0;
+        wr_en      = 1'b0;
+        wr_data    = 0;
 
         case (curr_state)
 
@@ -87,20 +94,30 @@ module embed #(
                     wte_addr_d = token_id * N_EMBD;
                     wpe_addr_d = pos_id * N_EMBD;
                     wr_addr_d  = X_EMBD_BASE_ADDR;
-                    next_state = WRITE;
+                    next_state = WRITE1;
                 end
             end
 
-            WRITE: begin
+            WRITE1: begin
+                // apply scaling
+                temp_val_a_d = $signed(wpe_data) * M_WPE;
+                temp_val_b_d = $signed(wte_data) * M_WTE;
+                next_state   = WRITE2;
+            end
+
+            WRITE2: begin
+                temp_val_d = (temp_val_a_q + temp_val_b_q) >>> S_EMBED;
+                next_state = WRITE3;
+            end
+
+            WRITE3: begin
                 wr_en = 1'b1;
 
-                // apply scaling
-                temp_val = ($signed(wpe_data) * M_WPE + $signed(wte_data) * M_WTE) >>> S_EMBED;
-                if (temp_val > 8'sd127)
-                    temp_val = 8'sd127;
-                else if (temp_val < -8'sd127)
-                    temp_val = -8'sd127;
-                wr_data = temp_val[7:0];
+                if (temp_val_q > 8'sd127)
+                    temp_val_d = 8'sd127;
+                else if (temp_val_q < -8'sd127)
+                    temp_val_d = -8'sd127;
+                wr_data = temp_val_d[7:0];
 
                 count_d = count_q + 1;
 
@@ -108,7 +125,7 @@ module embed #(
                     wte_addr_d = wte_addr_q + 1;
                     wpe_addr_d = wpe_addr_q + 1;
                     wr_addr_d  = wr_addr_q + 1;
-                    next_state = WRITE;
+                    next_state = WRITE1;
                 end else begin
                     next_state = DONE;
                 end

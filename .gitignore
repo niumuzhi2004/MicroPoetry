@@ -16,6 +16,9 @@ Training.ipynb
 /MicroPoetry/.rigel_lopper
 /MicroPoetry/ram_utils.txt
 /MicroPoetry/table.xlsx
+/MicroPoetry/*.txt
+
+/hardware/Table.xlsx
 
 *.cache/
 *.hw/

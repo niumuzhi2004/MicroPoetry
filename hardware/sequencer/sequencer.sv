@@ -49,16 +49,26 @@ module sequencer #(
     // internal registers
     logic [$clog2(VOCAB_SIZE)-1:0] token_id_d, token_id_q;
     logic [$clog2(BLOCK_SIZE)-1:0] pos_id_d, pos_id_q;
+    logic [$clog2(LAYER_NUM)-1:0] layer_d, layer_q;
+    logic [$clog2(N_HEAD)-1:0] head_id_d, head_id_q;
+    logic [2:0] param_d, param_q;
+    actuator_sel_t actuator_sel_d, actuator_sel_q;
     logic [$clog2(PROGRAM_LEN)-1:0] program_counter_d, program_counter_q;
+    logic in_fetch;
+    logic title_done_d, title_done_q;
 
     assign token_id        = token_id_q;
     assign pos_id          = pos_id_q;
     assign template_id_out = template_id_in;
     assign program_counter = program_counter_d;
+    assign layer           = layer_q;
+    assign param           = param_q;
+    assign head_id         = head_id_q;
+    assign actuator_sel    = actuator_sel_q;
 
     // FSM states
     typedef enum logic [2:0] {
-        IDLE, TITLE1, TITLE2, BODY1, BODY2, DONE
+        IDLE, FETCH, TITLE1, TITLE2, BODY1, BODY2, DONE
     } state_t;
 
     state_t curr_state, next_state;
@@ -69,12 +79,26 @@ module sequencer #(
             curr_state        <= IDLE;
             token_id_q        <= 0;
             pos_id_q          <= 0;
+            layer_q           <= 0;
+            head_id_q         <= 0;
+            param_q           <= 0;
+            actuator_sel_q    <= SEL_NONE;
             program_counter_q <= 0;
+            title_done_q      <= 0;
         end else begin
             curr_state        <= next_state;
             token_id_q        <= token_id_d;
             pos_id_q          <= pos_id_d;
             program_counter_q <= program_counter_d;
+            title_done_q      <= title_done_d;
+
+            if (in_fetch) begin
+                // decode instruction
+                actuator_sel_q <= actuator_sel_t'(instr[10:7]);
+                param_q        <= instr[6:4];
+                layer_q        <= instr[3:2];
+                head_id_q      <= instr[1:0];
+            end
         end
     end
 
@@ -85,6 +109,11 @@ module sequencer #(
         token_id_d        = token_id_q;
         pos_id_d          = pos_id_q;
         program_counter_d = program_counter_q;
+        actuator_sel_d    = actuator_sel_q;
+        param_d           = param_q;
+        layer_d           = layer_q;
+        head_id_d         = head_id_q;
+        title_done_d      = title_done_q;
 
         poem_end     = 1'b0;
         reg_wr_en    = 1'b0;
@@ -93,22 +122,25 @@ module sequencer #(
         lcg_wr_en    = 0;
         lcg_wr_data  = 0;
         start        = 0;
-
-        // decode instruction
-        actuator_sel = actuator_sel_t'(instr[10:7]);
-        param        = instr[6:4];
-        layer        = instr[3:2];
-        head_id      = instr[1:0];
+        in_fetch     = 1'b0;
 
         case (curr_state)
 
             IDLE: begin
                 if (poem_start) begin
-                    lcg_wr_en   = 1'b1;
-                    lcg_wr_data = lcg_seed;
-                    token_id_d  = title[0];
-                    next_state  = TITLE1;
+                    lcg_wr_en         = 1'b1;
+                    lcg_wr_data       = lcg_seed;
+                    token_id_d        = title[0];
+                    program_counter_d = 0;
+                    pos_id_d          = 0;
+                    title_done_d      = 1'b0;
+                    next_state        = FETCH;
                 end
+            end
+
+            FETCH: begin
+                in_fetch   = 1'b1;
+                next_state = (title_done_q) ? BODY1 : TITLE1;
             end
 
             TITLE1: begin
@@ -123,13 +155,14 @@ module sequencer #(
                         pos_id_d   = pos_id_q + 1;
                         token_id_d = title[pos_id_d];
                         if (pos_id_q == title_len - 2) begin // title priming done
-                            next_state = BODY1;
+                            title_done_d = 1'b1;
+                            next_state   = FETCH;
                         end else begin
-                            next_state = TITLE1;
+                            next_state = FETCH;
                         end
                     end else begin
                         program_counter_d = program_counter_q + 1;
-                        next_state = TITLE1;
+                        next_state = FETCH;
                     end
                 end
             end
@@ -151,14 +184,14 @@ module sequencer #(
                             program_counter_d = 0;
                             pos_id_d   = pos_id_q + 1;
                             token_id_d = gen_id;
-                            next_state = BODY1;
+                            next_state = FETCH;
                         end else begin
                             poem_end   = 1'b1;
                             next_state = DONE;
                         end
                     end else begin
                         program_counter_d = program_counter_q + 1;
-                        next_state = BODY1;
+                        next_state = FETCH;
                     end
                 end
             end

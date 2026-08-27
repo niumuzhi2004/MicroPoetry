@@ -69,14 +69,14 @@ module vecmove #(
     logic [ADDR_WIDTH-1:0] wr_addr_d, wr_addr_q;
     logic [$clog2(N_EMBD*4)-1:0] count_d, count_q;
     logic signed [DATA_WIDTH-1:0] after_relu;
-    logic signed [31:0] temp_val;
+    logic signed [31:0] temp_val_d, temp_val_q;
 
     assign addr_a = rd_addr_d;
     assign addr_b = wr_addr_q;
 
     // FSM states
-    typedef enum logic [1:0] {
-        IDLE, LOOP, DONE
+    typedef enum logic [2:0] {
+        IDLE, LOOP, LOOP_RELU1, LOOP_RELU2, DONE
     } state_t;
 
     state_t curr_state, next_state;
@@ -84,25 +84,28 @@ module vecmove #(
     // FSM sequential logic
     always_ff @(posedge clk) begin
         if (~rst_n) begin
-            curr_state   <= IDLE;
-            rd_addr_q    <= 0;
-            wr_addr_q    <= 0;
-            count_q      <= 0;
+            curr_state <= IDLE;
+            rd_addr_q  <= 0;
+            wr_addr_q  <= 0;
+            count_q    <= 0;
+            temp_val_q <= 0;
         end else begin
-            curr_state   <= next_state;
-            rd_addr_q    <= rd_addr_d;
-            wr_addr_q    <= wr_addr_d;
-            count_q      <= count_d;
+            curr_state <= next_state;
+            rd_addr_q  <= rd_addr_d;
+            wr_addr_q  <= wr_addr_d;
+            count_q    <= count_d;
+            temp_val_q <= temp_val_d;
         end
     end
 
     // FSM combinational logic
     always_comb begin
 
-        next_state   = curr_state;
-        rd_addr_d    = rd_addr_q;
-        wr_addr_d    = wr_addr_q;
-        count_d      = count_q;
+        next_state = curr_state;
+        rd_addr_d  = rd_addr_q;
+        wr_addr_d  = wr_addr_q;
+        count_d    = count_q;
+        temp_val_d = temp_val_q;
 
         done      = 1'b0;
         wr_en_a   = 1'b0;
@@ -117,32 +120,45 @@ module vecmove #(
                     count_d    = 0;
                     rd_addr_d  = input_base_addr;
                     wr_addr_d  = output_base_addr;
-                    next_state = LOOP;
+                    if (param == RELU)
+                        next_state = LOOP_RELU1;
+                    else  
+                        next_state = LOOP;
                 end
             end
 
             LOOP: begin
                 wr_en_b  = 1'b1;
-
-                if (param == RELU) begin
-                    after_relu = ($signed(rd_data_a) > 0) ? rd_data_a : 8'sd0;
-                    temp_val   = (after_relu * $signed(M_RELU)) >>> S_RELU;
-
-                    if (temp_val > 8'sd127)
-                        wr_data_b = 8'h7F;
-                    else
-                        wr_data_b = temp_val[7:0];
-                    
-                end else begin
-                    wr_data_b = rd_data_a;
-                end
-
+                wr_data_b = rd_data_a;
                 count_d = count_q + 1;
 
                 if (count_q < loop_size - 1) begin
                     rd_addr_d  = rd_addr_q + 1;
                     wr_addr_d  = wr_addr_q + 1;
                     next_state = LOOP;
+                end else begin
+                    next_state = DONE;
+                end
+            end
+
+            LOOP_RELU1: begin
+                after_relu = ($signed(rd_data_a) > 0) ? rd_data_a : 8'sd0;
+                temp_val_d = (after_relu * $signed(M_RELU)) >>> S_RELU;
+                next_state = LOOP_RELU2;
+            end
+
+            LOOP_RELU2: begin
+                wr_en_b  = 1'b1;
+                if (temp_val_q > 8'sd127)
+                    wr_data_b = 8'h7F;
+                else
+                    wr_data_b = temp_val_q[7:0];
+                
+                count_d = count_q + 1;
+                if (count_q < loop_size - 1) begin
+                    rd_addr_d  = rd_addr_q + 1;
+                    wr_addr_d  = wr_addr_q + 1;
+                    next_state = LOOP_RELU1;
                 end else begin
                     next_state = DONE;
                 end

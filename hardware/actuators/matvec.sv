@@ -101,8 +101,7 @@ module matvec #(
     end
 
     // scaling for each matrix-vector multiplication
-    logic [15:0] M_scale;
-    logic signed [47:0] temp_val_odd, temp_val_even; // used for clamping when scaling
+    logic [15:0] M_scale, M_scale_d, M_scale_q;
 
     always_comb begin
         case (param)
@@ -172,7 +171,9 @@ module matvec #(
     logic [$clog2(VOCAB_SIZE*N_EMBD*LAYER_NUM)-1:0] row_even_addr_d, row_even_addr_q;
     logic [ADDR_WIDTH-1:0] vec_addr_d, vec_addr_q;
     logic [ADDR_WIDTH-1:0] wr_addr_b_d, wr_addr_b_q;
-    logic signed [31:0] acc_odd_d, acc_odd_q, acc_even_d, acc_even_q;
+    (* USE_DSP = "yes" *) logic signed [31:0] acc_odd_d, acc_odd_q, acc_even_d, acc_even_q;
+    logic signed [47:0] temp_val_odd_d, temp_val_odd_q, temp_val_even_d, temp_val_even_q; // used for clamping when scaling
+    logic signed [DATA_WIDTH-1:0] row_odd_data_q, row_even_data_q, vec_data_q;
     
     assign row_odd_addr  = row_odd_addr_d;
     assign row_even_addr = row_even_addr_d;
@@ -185,11 +186,7 @@ module matvec #(
 
     // FSM states
     typedef enum logic [2:0] {
-        IDLE  = 3'b000,
-        ADD   = 3'b001,
-        WRITE = 3'b010,
-        WAIT  = 3'b011,
-        DONE  = 3'b100
+        IDLE, ADD, WRITE1, WRITE2, WAIT1, WAIT2, DONE
     } state_t;
 
     state_t curr_state, next_state;
@@ -206,6 +203,12 @@ module matvec #(
             wr_addr_b_q     <= 0;
             acc_odd_q       <= 0;
             acc_even_q      <= 0;
+            M_scale_q       <= 0;
+            temp_val_odd_q  <= 0;
+            temp_val_even_q <= 0;
+            row_odd_data_q  <= 0;
+            row_even_data_q <= 0;
+            vec_data_q      <= 0;
         end else begin
             curr_state      <= next_state;
             item_count_q    <= item_count_d;
@@ -216,6 +219,12 @@ module matvec #(
             wr_addr_b_q     <= wr_addr_b_d;
             acc_odd_q       <= acc_odd_d;
             acc_even_q      <= acc_even_d;
+            M_scale_q       <= M_scale;
+            temp_val_odd_q  <= temp_val_odd_d;
+            temp_val_even_q <= temp_val_even_d;
+            row_odd_data_q  <= row_odd_data;
+            row_even_data_q <= row_even_data;
+            vec_data_q      <= vec_data;
         end
     end
 
@@ -231,14 +240,15 @@ module matvec #(
         wr_addr_b_d     = wr_addr_b_q;
         acc_odd_d       = acc_odd_q;
         acc_even_d      = acc_even_q;
+        M_scale_d       = M_scale_q;
+        temp_val_odd_d  = temp_val_odd_q;
+        temp_val_even_d = temp_val_even_q;
 
         done          = 1'b0;
         wr_en_a       = 1'b0;
         wr_en_b       = 1'b0;
         wr_data_a     = 0;
         wr_data_b     = 0;
-        temp_val_odd  = 0;
-        temp_val_even = 0;
 
         case (curr_state)
 
@@ -251,13 +261,20 @@ module matvec #(
                     acc_even_d      = 32'b0;
                     item_count_d    = 0;
                     row_count_d     = 0;
-                    next_state      = ADD;
+                    next_state      = WAIT1;
                 end
             end
 
+            WAIT1: begin
+                row_odd_addr_d  = row_odd_addr_q + 1;
+                row_even_addr_d = row_even_addr_q + 1;
+                vec_addr_d      = vec_addr_q + 1;
+                next_state      = ADD;
+            end
+
             ADD: begin
-                acc_odd_d    = acc_odd_q + $signed(row_odd_data) * $signed(vec_data);
-                acc_even_d   = acc_even_q + $signed(row_even_data) * $signed(vec_data);
+                acc_odd_d    = acc_odd_q + row_odd_data_q * vec_data_q;
+                acc_even_d   = acc_even_q + row_even_data_q * vec_data_q;
                 item_count_d = item_count_q + 1;
 
                 if (item_count_q < num_of_cols - 1) begin 
@@ -268,50 +285,54 @@ module matvec #(
                 end else begin
                     vec_addr_d  = result_base_addr + row_count_q;
                     wr_addr_b_d = result_base_addr + row_count_q + 1;
-                    next_state  = WRITE;
+                    next_state  = WRITE1;
                 end
             end
 
-            WRITE: begin
+            WRITE1: begin
+                // apply scaling
+                temp_val_odd_d  = ((acc_odd_q * $signed(M_scale_q)) + (1 <<< (S_MATVEC - 1))) >>> S_MATVEC;
+                temp_val_even_d = ((acc_even_q * $signed(M_scale_q)) + (1 <<< (S_MATVEC - 1))) >>> S_MATVEC;
+                next_state      = WRITE2;
+            end
+
+            WRITE2: begin
                 wr_en_a = 1'b1;
                 wr_en_b = is_second_valid;
-                
-                // apply scaling
-                temp_val_odd = ((acc_odd_q * $signed(M_scale)) + (1 <<< (S_MATVEC - 1))) >>> S_MATVEC;
-                if (temp_val_odd > 8'sd127)
+
+                if (temp_val_odd_q > 8'sd127)
                     wr_data_a = 8'h7F;
-                else if (temp_val_odd < -8'sd127)
+                else if (temp_val_odd_q < -8'sd127)
                     wr_data_a = 8'h81;
                 else
-                    wr_data_a = temp_val_odd[7:0];
-
-                temp_val_even = ((acc_even_q * $signed(M_scale)) + (1 <<< (S_MATVEC - 1))) >>> S_MATVEC;
-                if (temp_val_even > 8'sd127)
+                    wr_data_a = temp_val_odd_q[7:0];
+                
+                if (temp_val_even_q > 8'sd127)
                     wr_data_b = 8'h7F;
-                else if (temp_val_even < -8'sd127)
+                else if (temp_val_even_q < -8'sd127)
                     wr_data_b = 8'h81;
                 else
-                    wr_data_b = temp_val_even[7:0];
+                    wr_data_b = temp_val_even_q[7:0];
 
                 row_count_d     = row_count_q + 2;
                 acc_odd_d       = 32'b0;
                 acc_even_d      = 32'b0;
                 item_count_d    = 0;
-                row_odd_addr_d  = row_odd_addr_q + num_of_cols + 1;
+                row_odd_addr_d  = row_odd_addr_q + num_of_cols;
 
                 if (is_second_valid)
-                    row_even_addr_d = row_even_addr_q + num_of_cols + 1;
+                    row_even_addr_d = row_even_addr_q + num_of_cols;
 
                 if (row_count_q < num_of_rows - 2) begin
-                    next_state = WAIT;
+                    next_state = WAIT2;
                 end else begin
                     next_state = DONE;
                 end
             end
 
-            WAIT: begin
+            WAIT2: begin
                 vec_addr_d = vec_base_addr;
-                next_state = ADD;
+                next_state = WAIT1;
             end
 
             DONE: begin

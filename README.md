@@ -65,6 +65,7 @@ The numbers are for estimations only and may vary with different validation sets
 | Iteration | Description | Token/s | Frequency | LUT | Registers | BRAM | DSP |
 |-----------|-------------|---------|-----------|-----|-----------|------|-----|
 | 0 | First core | ~212 | 50 MHz | 8066 | 2549 | 112 | 27 |
+| 1 | Timing rework | ~386 | 100 MHz | 7421 | 2786 | 112 | 34 |
 
 ## Usage
 

@@ -55,7 +55,6 @@ module softmax #(
 
     // scaling for each softmax calculation
     logic [15:0] M_diff;
-    logic signed [31:0] temp_val_odd, temp_val_even;
 
     always_comb begin
         case (param)
@@ -115,6 +114,8 @@ module softmax #(
     logic signed [22:0] idx_prod;                           // Q6.16
     logic signed [31:0] interp_prod;                        // Q1.31
     logic signed [63:0] result_prod_odd, result_prod_even;  // Q2.30
+    logic signed [31:0] rescaled_d, rescaled_q;
+    logic signed [31:0] temp_val_odd_d, temp_val_odd_q, temp_val_even_d, temp_val_even_q;
 
     assign addr_a    = addr_odd_d;
     assign addr_b    = addr_even_d;
@@ -127,9 +128,9 @@ module softmax #(
     assign is_last_pair    = ((count_q + 2) >= logit_size);
 
     // FSM states
-    typedef enum logic [3:0] {
-        IDLE, MAX, DIFF, EXP1, EXP2, EXP3, EXP4, EXP5, TOTAL, 
-        RECIP0, RECIP1, RECIP2, RECIP3, RECIP4, WRITE, DONE
+    typedef enum logic [4:0] {
+        IDLE, MAX, DIFF1, DIFF2, EXP1, EXP2, EXP3, EXP4, EXP5, TOTAL, 
+        RECIP0, RECIP1, RECIP2, RECIP3, RECIP4, WRITE1, WRITE2, RESCALE, DONE
     } state_t;
 
     state_t curr_state, next_state;
@@ -137,67 +138,76 @@ module softmax #(
     // FSM sequential logic
     always_ff @(posedge clk) begin
         if (~rst_n) begin
-            curr_state     <= IDLE;
-            count_q        <= 0;
-            addr_odd_q     <= 0;
-            addr_even_q    <= 0;
-            max_odd_q      <= 0;
-            max_even_q     <= 0;
-            max_overall_q  <= 0;
-            idx_q          <= 6'd0;
-            diff_q         <= 16'd0;
-            lut_val_s_q    <= 16'd0;
-            lut_val_l_q    <= 16'd0;
-            lut_val_diff_q <= 16'd0;
-            frac_q         <= 16'd0;
-            exp_val_q      <= 16'd0;
-            total_q        <= 16'd0;
-            m_q            <= 16'd0;
-            recip_val_q    <= 16'd0;
-            exp_q          <= 3'd0;
+            curr_state      <= IDLE;
+            count_q         <= 0;
+            addr_odd_q      <= 0;
+            addr_even_q     <= 0;
+            max_odd_q       <= 0;
+            max_even_q      <= 0;
+            max_overall_q   <= 0;
+            idx_q           <= 6'd0;
+            diff_q          <= 16'd0;
+            lut_val_s_q     <= 16'd0;
+            lut_val_l_q     <= 16'd0;
+            lut_val_diff_q  <= 16'd0;
+            frac_q          <= 16'd0;
+            exp_val_q       <= 16'd0;
+            total_q         <= 16'd0;
+            m_q             <= 16'd0;
+            recip_val_q     <= 16'd0;
+            exp_q           <= 3'd0;
+            rescaled_q      <= 31'd0;
+            temp_val_odd_q  <= 31'd0;
+            temp_val_even_q <= 31'd0;
         end else begin
-            curr_state     <= next_state;
-            count_q        <= count_d;
-            addr_odd_q     <= addr_odd_d;
-            addr_even_q    <= addr_even_d;
-            max_odd_q      <= max_odd_d;
-            max_even_q     <= max_even_d;
-            max_overall_q  <= max_overall_d;
-            idx_q          <= idx_d;
-            diff_q         <= diff_d;
-            lut_val_s_q    <= lut_val_s_d;
-            lut_val_l_q    <= lut_val_l_d;
-            lut_val_diff_q <= lut_val_diff_d;
-            frac_q         <= frac_d;
-            exp_val_q      <= exp_val_d;
-            total_q        <= total_d;
-            m_q            <= m_d;
-            recip_val_q    <= recip_val_d;
-            exp_q          <= exp_d;
+            curr_state      <= next_state;
+            count_q         <= count_d;
+            addr_odd_q      <= addr_odd_d;
+            addr_even_q     <= addr_even_d;
+            max_odd_q       <= max_odd_d;
+            max_even_q      <= max_even_d;
+            max_overall_q   <= max_overall_d;
+            idx_q           <= idx_d;
+            diff_q          <= diff_d;
+            lut_val_s_q     <= lut_val_s_d;
+            lut_val_l_q     <= lut_val_l_d;
+            lut_val_diff_q  <= lut_val_diff_d;
+            frac_q          <= frac_d;
+            exp_val_q       <= exp_val_d;
+            total_q         <= total_d;
+            m_q             <= m_d;
+            recip_val_q     <= recip_val_d;
+            exp_q           <= exp_d;
+            rescaled_q      <= rescaled_d;
+            temp_val_odd_q  <= temp_val_odd_d;
+            temp_val_even_q <= temp_val_even_d;
         end
     end
 
     // FSM combinational logic
     always_comb begin
 
-        next_state     = curr_state;
-        count_d        = count_q;
-        addr_odd_d     = addr_odd_q;
-        addr_even_d    = addr_even_q;
-        max_odd_d      = max_odd_q;
-        max_even_d     = max_even_q;
-        max_overall_d  = max_overall_q;
-        idx_d          = idx_q;
-        diff_d         = diff_q;
-        lut_val_s_d    = lut_val_s_q;
-        lut_val_l_d    = lut_val_l_q;
-        lut_val_diff_d = lut_val_diff_q;
-        frac_d         = frac_q;
-        exp_val_d      = exp_val_q;
-        total_d        = total_q;
-        m_d            = m_q;
-        recip_val_d    = recip_val_q;
-        exp_d          = exp_q;
+        next_state      = curr_state;
+        count_d         = count_q;
+        addr_odd_d      = addr_odd_q;
+        addr_even_d     = addr_even_q;
+        max_odd_d       = max_odd_q;
+        max_even_d      = max_even_q;
+        max_overall_d   = max_overall_q;
+        idx_d           = idx_q;
+        diff_d          = diff_q;
+        lut_val_s_d     = lut_val_s_q;
+        lut_val_l_d     = lut_val_l_q;
+        lut_val_diff_d  = lut_val_diff_q;
+        frac_d          = frac_q;
+        exp_val_d       = exp_val_q;
+        total_d         = total_q;
+        m_d             = m_q;
+        recip_val_d     = recip_val_q;
+        exp_d           = exp_q;
+        rescaled_d      = rescaled_q;
+        temp_val_odd_d  = temp_val_odd_q;
+        temp_val_even_d = temp_val_even_q;
 
         done           = 1'b0;
         wr_en_a        = 1'b0;
@@ -207,6 +217,15 @@ module softmax #(
         exps_mem_we    = 1'b0;
         exps_mem_addr  = 0;
         exps_mem_wdata = 0;
+        
+        raw_diff         = 0;
+        shifted_diff     = 0;
+        shifted_m        = 0;
+        diff_prod        = 0;
+        idx_prod         = 0;
+        interp_prod      = 0;
+        result_prod_odd  = 0;
+        result_prod_even = 0;
 
         case (curr_state)
 
@@ -241,15 +260,19 @@ module softmax #(
                         max_overall_d = max_even_d;
                     count_d    = 0;
                     addr_odd_d = input_base_addr;
-                    next_state = DIFF;
+                    next_state = DIFF1;
                 end
             end
 
-            DIFF: begin
+            DIFF1: begin
                 raw_diff  = $signed(rd_data_a) - max_overall_q;
                 diff_prod = raw_diff * $signed(M_diff);
                 diff_d    = diff_prod >>> (S_SOFTMAX - 12);
-                if (diff_d < DIFF_LOWER_BOUND) begin
+                next_state = DIFF2;
+            end
+
+            DIFF2: begin
+                if (diff_q < DIFF_LOWER_BOUND) begin
                     exp_val_d  = 0;
                     next_state = EXP5;
                 end else begin
@@ -305,7 +328,7 @@ module softmax #(
                 addr_odd_d = addr_odd_q + 1;
                 count_d    = count_q + 1;
                 if (count_q < logit_size - 1)
-                    next_state = DIFF;
+                    next_state = DIFF1;
                 else
                     next_state = RECIP0;
             end
@@ -350,38 +373,49 @@ module softmax #(
                 interp_prod = $signed({1'b0, frac_q}) * lut_val_diff_q;  // Q1.31
                 recip_val_d = ($signed({1'b0, lut_val_s_q}) + (interp_prod >>> 16)) >>> exp_q; // Q1.15
                 count_d     = 0;
-                next_state  = WRITE;
+                next_state  = RESCALE;
             end
 
-            WRITE: begin
+            RESCALE: begin
+                rescaled_d = recip_val_q * $signed(M_SOFTMAX_OUTPUT);
+                next_state = WRITE1;
+            end
+
+            WRITE1: begin
+                result_prod_odd  = $signed({1'b0, exps_mem[count_q >> 1][31:16]}) * rescaled_q;
+                result_prod_even = $signed({1'b0, exps_mem[count_q >> 1][15:0]}) * rescaled_q;
+
+                temp_val_odd_d  = (result_prod_odd) >>> S_SOFTMAX_OUTPUT;
+                temp_val_even_d = (result_prod_even) >>> S_SOFTMAX_OUTPUT;
+
+                next_state = WRITE2;
+            end
+
+            WRITE2: begin
                 wr_en_a     = 1'b1;
                 wr_en_b     = is_second_valid;
                 addr_odd_d  = output_base_addr + count_q;
                 addr_even_d = output_base_addr + count_q + 1;
 
-                result_prod_odd  = $signed({1'b0, exps_mem[count_q >> 1][31:16]}) * recip_val_q * $signed(M_SOFTMAX_OUTPUT);
-                result_prod_even = $signed({1'b0, exps_mem[count_q >> 1][15:0]}) * recip_val_q * $signed(M_SOFTMAX_OUTPUT);
-
-                temp_val_odd  = (result_prod_odd) >>> S_SOFTMAX_OUTPUT;
-                temp_val_even = (result_prod_even) >>> S_SOFTMAX_OUTPUT;
-
-                if (temp_val_odd > 32'sd255)
+                if (temp_val_odd_q > 32'sd255)
                     wr_data_a = 8'hFF;
-                else if (temp_val_odd < 32'sd0)
+                else if (temp_val_odd_q < 32'sd0)
                     wr_data_a = 8'h00;
                 else
-                    wr_data_a = temp_val_odd[7:0];
+                    wr_data_a = temp_val_odd_q[7:0];
 
-                if (temp_val_even > 32'sd255)
+                if (temp_val_even_q > 32'sd255)
                     wr_data_b = 8'hFF;
-                else if (temp_val_even < 32'sd0)
+                else if (temp_val_even_q < 32'sd0)
                     wr_data_b = 8'h00;
                 else
-                    wr_data_b = temp_val_even[7:0];
+                    wr_data_b = temp_val_even_q[7:0];
                 
                 count_d = count_q + 2;
                 if (is_last_pair)
                     next_state = DONE;
+                else  
+                    next_state = WRITE1;
             end
 
             DONE: begin

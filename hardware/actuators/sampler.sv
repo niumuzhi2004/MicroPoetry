@@ -49,7 +49,8 @@ module sampler #(
     logic [15:0] rand_val_d, rand_val_q; // random value in [0, total)
     logic [$clog2(VOCAB_SIZE)-1:0] gen_token_d, gen_token_q;
     logic [2:0] idx_d, idx_q;
-    logic [31:0] product, state;
+    logic [31:0] product;
+    logic [31:0] state_d, state_q;
 
     assign addr_a = odd_addr_d;
     assign addr_b = even_addr_d;
@@ -57,7 +58,7 @@ module sampler #(
 
     // FSM states
     typedef enum logic [3:0] {
-        IDLE, SUM, LAST_SUM, LCG, CHECK,
+        IDLE, SUM, LAST_SUM, LCG1, LCG2, CHECK1, CHECK2,
         APPEND1, APPEND2, APPEND3, APPEND4, DONE
     } state_t;
 
@@ -75,6 +76,7 @@ module sampler #(
             rand_val_q  <= 0;
             gen_token_q <= 0;
             idx_q       <= 0;
+            state_q     <= 0;
         end else begin
             curr_state  <= next_state;
             odd_addr_q  <= odd_addr_d;
@@ -85,6 +87,7 @@ module sampler #(
             rand_val_q  <= rand_val_d;
             gen_token_q <= gen_token_d;
             idx_q       <= idx_d;
+            state_q     <= state_d;
         end
     end
 
@@ -100,6 +103,7 @@ module sampler #(
         rand_val_d  = rand_val_q;
         gen_token_d = gen_token_q;
         idx_d       = idx_q;
+        state_d     = state_q;
 
         done           = 1'b0;
         end_poem       = 1'b0;
@@ -108,7 +112,6 @@ module sampler #(
         wr_data_c      = 0;
         lcg_wr_en      = 1'b0;
         lcg_new_state  = 0;
-        state          = 0;
         product        = 0;
         rhyme_rom_addr = 0;
 
@@ -137,27 +140,36 @@ module sampler #(
 
             LAST_SUM: begin
                 acc_d      = acc_q + rd_data_a;
-                next_state = LCG;
+                next_state = LCG1;
             end
 
-            LCG: begin
+            LCG1: begin
+                state_d    = LCG_PARAM_A * lcg_state;
+                next_state = LCG2;
+            end
+
+            LCG2: begin
                 lcg_wr_en     = 1'b1;
-                state         = LCG_PARAM_A * lcg_state + LCG_PARAM_C;
-                lcg_new_state = state;
-                product       = state[31:16] * acc_q;
+                state_d       = state_q + LCG_PARAM_C;
+                lcg_new_state = state_d;
+                product       = state_d[31:16] * acc_q;
                 rand_val_d    = product >> 16;
                 odd_addr_d    = LOGITS_BUFFER_BASE_ADDR;
                 count_d       = 0;
                 acc_d         = 0;
-                next_state    = CHECK;
+                next_state    = CHECK1;
             end
 
-            CHECK: begin
+            CHECK1: begin
                 acc_d      = acc_q + rd_data_a;
+                next_state = CHECK2;
+            end
+
+            CHECK2: begin
                 count_d    = count_q + 1;
                 odd_addr_d = odd_addr_q + 1;
 
-                if (acc_d > rand_val_q) begin
+                if (acc_q > rand_val_q) begin
                     gen_token_d = count_q;
                     addr_c      = GENERATED_COUNT_BASE_ADDR;
                     next_state  = APPEND1;
@@ -165,6 +177,8 @@ module sampler #(
                     gen_token_d = VOCAB_SIZE - 1;
                     addr_c      = GENERATED_COUNT_BASE_ADDR;
                     next_state  = APPEND1;
+                end else begin
+                    next_state = CHECK1;
                 end
             end
 

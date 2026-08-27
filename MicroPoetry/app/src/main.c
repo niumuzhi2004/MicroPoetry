@@ -29,7 +29,7 @@ volatile unsigned int *poem_base_addr   = (unsigned int *) (XPAR_ENGINE_WRAPPER_
 unsigned int title_arr[TITLE_LEN];
 unsigned int poem_arr[POEM_LEN];
 
-char title_str[] = "静夜思";
+char title_str[] = "送别";
 
 static int utf8_len(unsigned char c) {
     if (c < 0x80)           return 1;
@@ -156,7 +156,7 @@ int print_poem() {
 }
 
 int main () {
-
+    
     XTime t_start, t_end;
     
     int size = encode_title(title_str);
@@ -175,14 +175,15 @@ int main () {
     while (!check_poem_done()) {
         // wait for poem to finish
     }
+    
     XTime_GetTime(&t_end);
 
     read_poem();
     print_poem();
 
     XTime elapsed_tics = t_end - t_start;
-    double elapsed_ms = ((double) elapsed_tics) / ((double) COUNTS_PER_SECOND) * 1000.0;
-    printf("Generation time: %.3f ms\r\n", elapsed_ms);
+    u32 elapsed_us = (u32)(((u64)elapsed_tics * 1000000ULL) / (u64)(COUNTS_PER_SECOND));
+    xil_printf("Generation time: %d.%03d ms\r\n", elapsed_us / 1000, elapsed_us % 1000);
     
     return XST_SUCCESS;
     

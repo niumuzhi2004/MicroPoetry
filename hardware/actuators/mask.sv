@@ -59,7 +59,7 @@ module mask #(
     logic [7:0] rhyme_group_d, rhyme_group_q;
     logic [2:0] prev_rhyme_count_d, prev_rhyme_count_q;
     logic tone_sel_d, tone_sel_q;
-    logic signed [31:0] temp_val;
+    logic signed [31:0] temp_val_d, temp_val_q;
     logic [$clog2(ZE_CHARS)-1:0] total_tone_ids_d, total_tone_ids_q;
 
     assign addr_a   = rd_addr_d;
@@ -72,7 +72,7 @@ module mask #(
 
     // FSM states
     typedef enum logic [3:0] {
-        IDLE, BOS, SEP, UNK, REP0, REP1, REP2, CHECK, 
+        IDLE, BOS, SEP, UNK, REP0, REP1, REP2, REP3, CHECK, 
         RHYME1, RHYME2, RHYME3, RHYME4, TONE1, TONE2, DONE
     } state_t;
 
@@ -89,6 +89,7 @@ module mask #(
             prev_rhyme_count_q <= 0;
             total_tone_ids_q   <= 0;
             tone_sel_q         <= 0;
+            temp_val_q         <= 0;
         end else begin
             curr_state         <= next_state;
             rd_addr_q          <= rd_addr_d;
@@ -98,6 +99,7 @@ module mask #(
             prev_rhyme_count_q <= prev_rhyme_count_d;
             total_tone_ids_q   <= total_tone_ids_d;
             tone_sel_q         <= tone_sel_d;
+            temp_val_q         <= temp_val_d;
         end
     end
 
@@ -112,6 +114,7 @@ module mask #(
         prev_rhyme_count_d = prev_rhyme_count_q;
         total_tone_ids_d   = total_tone_ids_q;
         tone_sel_d         = tone_sel_q;
+        temp_val_d         = temp_val_q;
 
         done      = 1'b0;
         wr_en_a   = 1'b0;
@@ -174,20 +177,23 @@ module mask #(
             end
 
             REP2: begin
+                if (rd_data_a[DATA_WIDTH-1] == 1'b0)
+                    temp_val_d = ($signed(rd_data_a) * $signed(M_RECIP_REPETITION)) >>> S_REPETITION_PENALTY;
+                else 
+                    temp_val_d = ($signed(rd_data_a) * $signed(M_MULTIPLY_REPETITION)) >>> S_REPETITION_PENALTY;
+                next_state = REP3;
+            end
+
+            REP3: begin
                 wr_en_b   = 1'b1;
                 addr_b    = rd_addr_q;
 
-                if (rd_data_a[DATA_WIDTH-1] == 1'b0)
-                    temp_val = ($signed(rd_data_a) * $signed(M_RECIP_REPETITION)) >>> S_REPETITION_PENALTY;
-                else 
-                    temp_val = ($signed(rd_data_a) * $signed(M_MULTIPLY_REPETITION)) >>> S_REPETITION_PENALTY;
-                
-                if (temp_val > 8'sd127)
+                if (temp_val_q > 8'sd127)
                     wr_data_b = 8'sd127;
-                else if (temp_val < -8'sd127)
+                else if (temp_val_q < -8'sd127)
                     wr_data_b = -8'sd127;
                 else
-                    wr_data_b = temp_val[7:0];
+                    wr_data_b = temp_val_q[7:0];
 
                 count_d = count_q + 1;
 

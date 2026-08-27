@@ -53,7 +53,7 @@ module attn_score #(
     logic [ADDR_WIDTH-1:0] addr_k_d, addr_k_q;
     logic [$clog2(HEAD_DIM)-1:0] dim_count_d, dim_count_q;
     logic [$clog2(BLOCK_SIZE)-1:0] pos_count_d, pos_count_q;
-    logic signed [31:0] acc_d, acc_q;
+    (* USE_DSP = "yes" *) logic signed [31:0] acc_d, acc_q;
     logic signed [47:0] temp_val;
 
     assign addr_a = addr_q_d;
