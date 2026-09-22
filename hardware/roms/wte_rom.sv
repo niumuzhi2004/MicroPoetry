@@ -1,41 +1,46 @@
 module wte_rom #(
-    parameter int VOCAB_SIZE = 3005,
-    parameter int N_EMBD     = 64,
-    parameter int DATA_WIDTH = 8
+    parameter int N_BANKS    = 47,
+    parameter int BANK_DEPTH = 1024,
+    parameter int WORD_WIDTH = 32
 ) (
     input  logic clk,
 
-    // Port A
-    input  logic wr_en_a,
-    input  logic [DATA_WIDTH-1:0] wr_data_a,
-    input  logic [$clog2(VOCAB_SIZE*N_EMBD)-1:0] addr_a,
-    output logic [DATA_WIDTH-1:0] rd_data_a,
+    // Port As
+    input  logic                            wr_en_a     [N_BANKS],
+    input  logic [WORD_WIDTH-1:0]           wr_data_a   [N_BANKS],
+    input  logic [$clog2(BANK_DEPTH)-1:0]   addr_a      [N_BANKS],
+    output logic [WORD_WIDTH-1:0]           rd_data_a   [N_BANKS],
 
-    // Port B
-    input  logic wr_en_b,
-    input  logic [DATA_WIDTH-1:0] wr_data_b,
-    input  logic [$clog2(VOCAB_SIZE*N_EMBD)-1:0] addr_b,
-    output logic [DATA_WIDTH-1:0] rd_data_b
+    // Port Bs
+    input  logic                            wr_en_b     [N_BANKS],
+    input  logic [WORD_WIDTH-1:0]           wr_data_b   [N_BANKS],
+    input  logic [$clog2(BANK_DEPTH)-1:0]   addr_b      [N_BANKS],
+    output logic [WORD_WIDTH-1:0]           rd_data_b   [N_BANKS]
 );
 
-    (* ram_style = "block" *) logic [DATA_WIDTH-1:0] rom [0:(VOCAB_SIZE*N_EMBD-1)];
+    genvar i;
+    generate
+        for (i=0; i<N_BANKS; ++i) begin
+            (* ram_style = "block" *) logic [WORD_WIDTH-1:0] rom [BANK_DEPTH];
 
-    initial begin
-        $readmemh("wte_weight.hex", rom);
-    end
+            initial begin
+                $readmemh($sformatf("wte_weight_%0d.hex", i), rom);
+            end
+            
+            // write ports are kept but unconnected to properly infer dual-port BRAM
+            always_ff @(posedge clk) begin
+                if (wr_en_a[i])
+                    rom[addr_a[i]] <= wr_data_a[i];
+                rd_data_a[i] <= rom[addr_a[i]];
+            end
 
-    // write ports are kept but unconnected to properly infer dual-port BRAM
+            always_ff @(posedge clk) begin
+                if (wr_en_b[i])
+                    rom[addr_b[i]] <= wr_data_b[i];
+                rd_data_b[i] <= rom[addr_b[i]];
+            end
 
-    always_ff @(posedge clk) begin
-        if (wr_en_a)
-            rom[addr_a] <= wr_data_a;
-        rd_data_a <= rom[addr_a];
-    end
-
-    always_ff @(posedge clk) begin
-        if (wr_en_b)
-            rom[addr_b] <= wr_data_b;
-        rd_data_b <= rom[addr_b];
-    end
+        end
+    endgenerate
     
 endmodule

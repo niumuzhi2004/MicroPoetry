@@ -60,12 +60,26 @@ To reduce computation cost and memory footprint, the model [weights](./quantizat
 
 The numbers are for estimations only and may vary with different validation sets. At each quantization boundary, the activations are rescaled using an integer multiply + right shift pair `(M, S)` such that `rescaled_activation ≈ (raw_value x M) >> S`. The scaling constants are calculated [here](./quantization/scaling.py). 
 
+## BRAM Partitioning
+
+Because each RAMB36 BRAM slice in the Zynq-7020 can support dual-port access, we can partition the weight ROMs into smaller ROM banks such that each bank can fit into a single BRAM slice and have two independent read ports. Each bank should store 1024 32-bit words, with each word containing 4 INT8 weights. In the `matvec` actuator, we could then read and perform MAC on many different rows of the weight matrix in parallel. 
+
+Since each weight matrix has a different size, the partitioning scheme is shown below:
+
+| ROM | Size | Rows/Bank (per layer) | # of Banks | In-Bank Address | MACs |
+|-----|------------|-----------------------|------------|-----------------|------|
+| `wte` | 3005 x 64 | 64 | 47 | `{k[5:0], word[3:0]}` | 94 |
+| `mlp_fc1` | 256 x 64 | 256 | 16 | `{layer[1:0], k[3:0], word[3:0]}` | 32 |
+| `mlp_fc2` | 64 x 256 | 64 | 4 | `{layer[1:0], k[1:0], word[5:0]}` | 32 |
+| `attn_w*` | 64 x 64 | 64 | 16 | `{layer[1:0], k[3:0], word[3:0]}` | 8 |
+
 ## Performance
 
-| Iteration | Description | Token/s | Frequency | LUT | Registers | BRAM | DSP |
+| Iteration | Description | Token/s | Frequency | LUT (53200) | Registers (106400) | BRAM (140) | DSP (220) |
 |-----------|-------------|---------|-----------|-----|-----------|------|-----|
-| 0 | First core | ~212 | 50 MHz | 8066 | 2549 | 112 | 27 |
-| 1 | Timing rework | ~386 | 100 MHz | 7421 | 2786 | 112 | 34 |
+| 0 | First core | **~212** | 50 MHz | 8066 | 2549 | 112 | 27 |
+| 1 | Timing rework | **~386** | 100 MHz | 7421 | 2786 | 112 | 34 |
+| 2 | Parallel MAC | ~386 | 100 MHz | 8066 | 2549 | 112 | 34 |
 
 ## Usage
 

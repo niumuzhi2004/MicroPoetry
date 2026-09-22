@@ -6,9 +6,12 @@ module engine_top #(
 
     parameter int LAYER_NUM = 4,
     parameter int N_HEAD = 4,
+    parameter int N_BANKS    = 47,
+    parameter int BANK_DEPTH = 1024,
     parameter int BLOCK_SIZE = 96,
     parameter int DATA_WIDTH = 8,
     parameter int ADDR_WIDTH = 16,
+    parameter int WORD_WIDTH = 32,
     parameter int N_EMBD = 64,
     parameter int ZE_CHARS = 1848,
     parameter int N_TEMPLATE = 4,
@@ -132,9 +135,10 @@ module engine_top #(
     logic [$clog2(BLOCK_SIZE)-1:0] pos_id_embed;
 
     // weight ROM port
-    logic [DATA_WIDTH-1:0] wte_data_embed;
+    logic [WORD_WIDTH-1:0] wte_data_embed [N_BANKS];
+    logic [$clog2(BANK_DEPTH)-1:0] wte_addr_embed [N_BANKS];
+
     logic [DATA_WIDTH-1:0] wpe_data_embed;
-    logic [$clog2(VOCAB_SIZE*N_EMBD)-1:0] wte_addr_embed;
     logic [$clog2(BLOCK_SIZE*N_EMBD)-1:0] wpe_addr_embed;
 
     // scratchpad port A
@@ -239,6 +243,14 @@ module engine_top #(
     logic [$clog2(VOCAB_SIZE*N_EMBD)-1:0] wrom_addr_a_matvec, wrom_addr_b_matvec;
     logic [DATA_WIDTH-1:0] wrom_data_a_matvec, wrom_data_b_matvec;
 
+    // wte rom ports
+    logic [$clog2(BANK_DEPTH)-1:0] wte_addr_a_matvec  [N_BANKS];
+    logic [WORD_WIDTH-1:0] data_a_wte_rom             [N_BANKS];
+
+    // wte ROM port B for reading even rows
+    logic [$clog2(BANK_DEPTH)-1:0] wte_addr_b_matvec [N_BANKS];
+    logic [WORD_WIDTH-1:0] data_b_wte_rom            [N_BANKS];
+
     // scratchpad port A
     logic [DATA_WIDTH-1:0] rd_data_a_matvec;
     logic wr_en_a_matvec;
@@ -261,6 +273,10 @@ module engine_top #(
         .row_even_addr(wrom_addr_b_matvec),
         .row_odd_data(wrom_data_a_matvec),
         .row_even_data(wrom_data_b_matvec),
+        .wte_row_odd_addr(wte_addr_a_matvec),
+        .wte_row_odd_data(data_a_wte_rom),
+        .wte_row_even_addr(wte_addr_b_matvec),
+        .wte_row_even_data(data_b_wte_rom),
         .vec_data(rd_data_a_matvec),
         .wr_en_a(wr_en_a_matvec),
         .wr_addr_a(addr_a_matvec),
@@ -643,16 +659,17 @@ module engine_top #(
     );
 
     // wte rom
-    logic [$clog2(VOCAB_SIZE*N_EMBD)-1:0] addr_a_wte_rom, addr_b_wte_rom;
-    logic [DATA_WIDTH-1:0] data_a_wte_rom, data_b_wte_rom;
+    logic [$clog2(BANK_DEPTH)-1:0] addr_a_wte_rom [N_BANKS];
+    logic [$clog2(BANK_DEPTH)-1:0] addr_b_wte_rom [N_BANKS];
+
     wte_rom wte_rom_inst (
         .clk(clk),
-        .wr_en_a(1'b0),
-        .wr_data_a(8'b0),
+        .wr_en_a('{default: '0}),
+        .wr_data_a('{default: '0}),
         .addr_a(addr_a_wte_rom),
         .rd_data_a(data_a_wte_rom),
-        .wr_en_b(1'b0),
-        .wr_data_b(8'b0),
+        .wr_en_b('{default: '0}),
+        .wr_data_b('{default: '0}),
         .addr_b(addr_b_wte_rom),
         .rd_data_b(data_b_wte_rom)
     );
@@ -773,7 +790,7 @@ module engine_top #(
         start_embed      = 1'b0;
         token_id_embed   = 0;
         pos_id_embed     = 0;
-        wte_data_embed   = 0;
+        wte_data_embed   = '{default: '0};
 
         start_mask            = 1'b0;
         template_id_mask      = 0;
@@ -838,8 +855,8 @@ module engine_top #(
         rhyme_rom_addr_a = 0;
         rhyme_rom_addr_b = 0;
 
-        addr_a_wte_rom = 0;
-        addr_b_wte_rom = 0;
+        addr_a_wte_rom = '{default: '0};
+        addr_b_wte_rom = '{default: '0};
 
         done_sequencer      = 1'b0;
         poem_done_sequencer = 1'b0;
@@ -916,8 +933,8 @@ module engine_top #(
                 done_sequencer       = done_matvec;
                 layer_matvec         = layer_sequencer;
                 param_matvec         = matvec_param_t'(param_sequencer);
-                addr_a_wte_rom       = wrom_addr_a_matvec;
-                addr_b_wte_rom       = wrom_addr_b_matvec;
+                addr_a_wte_rom       = wte_addr_a_matvec;
+                addr_b_wte_rom       = wte_addr_b_matvec;
                 rd_data_a_matvec     = rd_data_a_scratchpad;
                 wr_en_a_scratchpad   = wr_en_a_matvec;
                 addr_a_scratchpad    = addr_a_matvec;
@@ -1042,10 +1059,10 @@ module engine_top #(
                     wrom_data_a_matvec = data_a_mlp_fc2;
                     wrom_data_b_matvec = data_b_mlp_fc2;
                 end
-                LM_HEAD: begin
-                    wrom_data_a_matvec = data_a_wte_rom;
-                    wrom_data_b_matvec = data_b_wte_rom;
-                end
+                // LM_HEAD: begin
+                //     wrom_data_a_matvec = data_a_wte_rom;
+                //     wrom_data_b_matvec = data_b_wte_rom;
+                // end
                 default: begin
                     wrom_data_a_matvec = 0;
                     wrom_data_b_matvec = 0;

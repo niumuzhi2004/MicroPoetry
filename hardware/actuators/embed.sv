@@ -3,6 +3,9 @@ import proj_pkg::*;
 module embed #(
     parameter int VOCAB_SIZE = 3005,
     parameter int BLOCK_SIZE = 96,
+    parameter int N_BANKS    = 47,
+    parameter int BANK_DEPTH = 1024,
+    parameter int WORD_WIDTH = 32,
     parameter int N_EMBD     = 64,
     parameter int ADDR_WIDTH = 16,
     parameter int DATA_WIDTH = 8
@@ -17,9 +20,10 @@ module embed #(
     input  logic [$clog2(BLOCK_SIZE)-1:0] pos_id,
 
     // weight ROM port
-    input  logic [DATA_WIDTH-1:0] wte_data,
+    input  logic [WORD_WIDTH-1:0] wte_data          [N_BANKS],
+    output logic [$clog2(BANK_DEPTH)-1:0] wte_addr  [N_BANKS],
+
     input  logic [DATA_WIDTH-1:0] wpe_data,
-    output logic [$clog2(VOCAB_SIZE*N_EMBD)-1:0] wte_addr,
     output logic [$clog2(BLOCK_SIZE*N_EMBD)-1:0] wpe_addr,
 
     // scratchpad port
@@ -29,16 +33,27 @@ module embed #(
 );
 
     // flip-flop signals
-    logic [$clog2(N_EMBD):0] count_d, count_q;
+    logic [$clog2(N_EMBD)-1:0] count_d, count_q;
+    logic [$clog2(N_BANKS)-1:0] bank_sel_d, bank_sel_q;
     logic [$clog2(VOCAB_SIZE*N_EMBD)-1:0] wte_addr_d, wte_addr_q;
     logic [$clog2(BLOCK_SIZE*N_EMBD)-1:0] wpe_addr_d, wpe_addr_q;
     logic [ADDR_WIDTH-1:0] wr_addr_d, wr_addr_q;
     logic signed [23:0] temp_val_a_d, temp_val_a_q, temp_val_b_d, temp_val_b_q;
     logic signed [23:0] temp_val_d, temp_val_q;  // used for clamping when scaling
 
-    assign wte_addr = wte_addr_d;
     assign wpe_addr = wpe_addr_d;
     assign wr_addr  = wr_addr_q;
+
+    // wte bank select logic
+    logic [DATA_WIDTH-1:0] wte_data_selected;
+
+    always_comb begin
+        for (int i=0; i<N_BANKS; ++i) begin
+            wte_addr[i] = '0;
+        end
+        wte_addr[wte_addr_d[17:12]] = wte_addr_d[11:2];
+        wte_data_selected = wte_data[bank_sel_q][8*wte_addr_q[1:0] +: 8];
+    end
 
     // FSM states
     typedef enum logic [2:0] {
@@ -52,6 +67,7 @@ module embed #(
         if (~rst_n) begin
             curr_state   <= IDLE;
             count_q      <= 0;
+            bank_sel_q   <= 0;
             wte_addr_q   <= 0;
             wpe_addr_q   <= 0;
             wr_addr_q    <= 0;
@@ -61,6 +77,7 @@ module embed #(
         end else begin
             curr_state   <= next_state;
             count_q      <= count_d;
+            bank_sel_q   <= bank_sel_d;
             wte_addr_q   <= wte_addr_d;
             wpe_addr_q   <= wpe_addr_d;
             wr_addr_q    <= wr_addr_d;
@@ -75,6 +92,7 @@ module embed #(
 
         next_state   = curr_state;
         count_d      = count_q;
+        bank_sel_d   = bank_sel_q;
         wte_addr_d   = wte_addr_q;
         wpe_addr_d   = wpe_addr_q;
         wr_addr_d    = wr_addr_q;
@@ -94,6 +112,7 @@ module embed #(
                     wte_addr_d = token_id * N_EMBD;
                     wpe_addr_d = pos_id * N_EMBD;
                     wr_addr_d  = X_EMBD_BASE_ADDR;
+                    bank_sel_d = token_id >> 6;
                     next_state = WRITE1;
                 end
             end
@@ -101,7 +120,7 @@ module embed #(
             WRITE1: begin
                 // apply scaling
                 temp_val_a_d = $signed(wpe_data) * M_WPE;
-                temp_val_b_d = $signed(wte_data) * M_WTE;
+                temp_val_b_d = $signed(wte_data_selected) * M_WTE;
                 next_state   = WRITE2;
             end
 
