@@ -79,7 +79,7 @@ Since each weight matrix has a different size, the partitioning scheme is shown 
 |-----------|-------------|---------|-----------|-----|-----------|------|-----|
 | 0 | First core | **~212** | 50 MHz | 8066 | 2549 | 112 | 27 |
 | 1 | Timing rework | **~386** | 100 MHz | 7421 | 2786 | 112 | 34 |
-| 2 | Parallel MAC | ~386 | 100 MHz | 8066 | 2549 | 112 | 34 |
+| 2 | Parallel MAC | **~641** | 100 MHz | 15050 | 8696 | 115 | 132 |
 
 ## Usage
 
