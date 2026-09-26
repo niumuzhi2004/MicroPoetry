@@ -69,9 +69,9 @@ Since each weight matrix has a different size, the partitioning scheme is shown 
 | ROM | Size | Rows/Bank (per layer) | # of Banks | In-Bank Address | MACs |
 |-----|------------|-----------------------|------------|-----------------|------|
 | `wte` | 3005 x 64 | 64 | 47 | `{k[5:0], word[3:0]}` | 94 |
-| `mlp_fc1` | 256 x 64 | 256 | 16 | `{layer[1:0], k[3:0], word[3:0]}` | 32 |
-| `mlp_fc2` | 64 x 256 | 64 | 4 | `{layer[1:0], k[1:0], word[5:0]}` | 32 |
-| `attn_w*` | 64 x 64 | 64 | 16 | `{layer[1:0], k[3:0], word[3:0]}` | 8 |
+| `mlp_fc1` | 256 x 64 | 16 | 16 | `{layer[1:0], k[3:0], word[3:0]}` | 32 |
+| `mlp_fc2` | 64 x 256 | 4 | 16 | `{layer[1:0], k[1:0], word[5:0]}` | 32 |
+| `attn_w*` | 64 x 64 | 16 | 4 | `{layer[1:0], k[3:0], word[3:0]}` | 8 |
 
 ## Performance
 
