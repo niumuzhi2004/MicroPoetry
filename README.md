@@ -4,6 +4,13 @@ This projects extends Andrej Karpathy's **[microgpt](https://karpathy.github.io/
 We target specifically at the 七言律诗 (seven-character regulated verse) format, where a poem contains 8 lines, with each line containing 7 characters. 
 The main goal of the project is to build an inference engine in RTL for the quantized transformer model, implemented on a Xilinx Zynq-7020 FPGA. 
 
+## Key Innovations
+- **Model Size**: Sized up to 4 layers and ~0.4M parameters, generating Chinese poems with 3005 vocabularies.
+- **Hardware-enforced constraints**: The tone and rhyme constraints are enforced in RTL with a masking module.
+- **Quantization**: INT8 quantization for both weights and activations to save memory and computation cost.
+- **Numerical Approximations**: Newton-Raphson and LUT-based methods are used in RMSNorm and Softmax.
+- **PS-PL Coordination**: The PS side handles user inputs and communicates with PL via AXI4-Lite.
+
 ## Hardware
 
 The hardware architecture is inspired by Fabio Guzman's **[gateGPT](https://github.com/fguzman82/gateGPT/tree/main)**. The PS side initiates the poem generation by sending over the poem title, LCG random seed, and which template to use. The sequencer reads the information from the register file and starts the actuators, one at a time. The entire sequence is encoded in a program generated from [Python code](./hardware/sequencer/program.py). 
@@ -79,7 +86,7 @@ Since each weight matrix has a different size, the partitioning scheme is shown 
 |-----------|-------------|---------|-----------|-----|-----------|------|-----|
 | 0 | First core | **~212** | 50 MHz | 8066 | 2549 | 112 | 27 |
 | 1 | Timing rework | **~386** | 100 MHz | 7421 | 2786 | 112 | 34 |
-| 2 | Parallel MAC | **~641** | 100 MHz | 15050 | 8696 | 115 | 132 |
+| 2 | Parallel MAC | **~1341** | 100 MHz | 18825 | 9788 | 115 | 126 |
 
 ## Usage
 
