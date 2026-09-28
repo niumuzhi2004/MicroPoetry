@@ -133,8 +133,8 @@ def reformat_attn_w(weight_name):
 
 
 if __name__ == "__main__":
-    # reformat_wte()
-    # reformat_mlp_fc1()
+    reformat_wte()
+    reformat_mlp_fc1()
     reformat_mlp_fc2()
     reformat_attn_w("k")
     reformat_attn_w("v")

@@ -4,18 +4,17 @@ module engine_top #(
     parameter int C_S_AXI_ADDR_WIDTH = 9,
     parameter int C_S_AXI_DATA_WIDTH = 32,
 
-    parameter int LAYER_NUM = 4,
-    parameter int N_HEAD = 4,
-    parameter int N_BANKS    = 47,
-    parameter int BANK_DEPTH = 1024,
-    parameter int BLOCK_SIZE = 96,
-    parameter int DATA_WIDTH = 8,
-    parameter int ADDR_WIDTH = 16,
-    parameter int WORD_WIDTH = 32,
-    parameter int N_EMBD = 64,
-    parameter int ZE_CHARS = 1848,
-    parameter int N_TEMPLATE = 4,
-    parameter int POEM_LEN = 56,
+    parameter int LAYER_NUM   = 4,
+    parameter int N_HEAD      = 4,
+    parameter int BANK_DEPTH  = 1024,
+    parameter int BLOCK_SIZE  = 96,
+    parameter int DATA_WIDTH  = 8,
+    parameter int ADDR_WIDTH  = 16,
+    parameter int WORD_WIDTH  = 32,
+    parameter int N_EMBD      = 64,
+    parameter int ZE_CHARS    = 1848,
+    parameter int N_TEMPLATE  = 4,
+    parameter int POEM_LEN    = 56,
     parameter int PROGRAM_LEN = 115,
     parameter int INSTR_WIDTH = 12,
     parameter int TITLE_SIZE  = 12,
@@ -135,8 +134,8 @@ module engine_top #(
     logic [$clog2(BLOCK_SIZE)-1:0] pos_id_embed;
 
     // weight ROM port
-    logic [WORD_WIDTH-1:0] wte_data_embed [N_BANKS];
-    logic [$clog2(BANK_DEPTH)-1:0] wte_addr_embed [N_BANKS];
+    logic [WORD_WIDTH-1:0] wte_data_embed [N_BANKS_WTE];
+    logic [$clog2(BANK_DEPTH)-1:0] wte_addr_embed [N_BANKS_WTE];
 
     logic [DATA_WIDTH-1:0] wpe_data_embed;
     logic [$clog2(BLOCK_SIZE*N_EMBD)-1:0] wpe_addr_embed;
@@ -240,16 +239,10 @@ module engine_top #(
     matvec_param_t param_matvec;
     
     // weight rom ports
-    logic [$clog2(VOCAB_SIZE*N_EMBD)-1:0] wrom_addr_a_matvec, wrom_addr_b_matvec;
-    logic [DATA_WIDTH-1:0] wrom_data_a_matvec, wrom_data_b_matvec;
-
-    // wte rom ports
-    logic [$clog2(BANK_DEPTH)-1:0] wte_addr_a_matvec  [N_BANKS];
-    logic [WORD_WIDTH-1:0] data_a_wte_rom             [N_BANKS];
-
-    // wte ROM port B for reading even rows
-    logic [$clog2(BANK_DEPTH)-1:0] wte_addr_b_matvec [N_BANKS];
-    logic [WORD_WIDTH-1:0] data_b_wte_rom            [N_BANKS];
+    logic [$clog2(BANK_DEPTH)-1:0] wrom_addr_a_matvec [N_BANKS_WTE];
+    logic [$clog2(BANK_DEPTH)-1:0] wrom_addr_b_matvec [N_BANKS_WTE];
+    logic [WORD_WIDTH-1:0] wrom_data_a_matvec [N_BANKS_WTE];
+    logic [WORD_WIDTH-1:0] wrom_data_b_matvec [N_BANKS_WTE];
 
     // scratchpad port A
     logic [DATA_WIDTH-1:0] rd_data_a_matvec;
@@ -273,10 +266,6 @@ module engine_top #(
         .row_even_addr(wrom_addr_b_matvec),
         .row_odd_data(wrom_data_a_matvec),
         .row_even_data(wrom_data_b_matvec),
-        .wte_row_odd_addr(wte_addr_a_matvec),
-        .wte_row_odd_data(data_a_wte_rom),
-        .wte_row_even_addr(wte_addr_b_matvec),
-        .wte_row_even_data(data_b_wte_rom),
         .vec_data(rd_data_a_matvec),
         .wr_en_a(wr_en_a_matvec),
         .wr_addr_a(addr_a_matvec),
@@ -549,76 +538,116 @@ module engine_top #(
 
 
     // attn_wk rom
-    logic [DATA_WIDTH-1:0] data_a_attn_wk, data_b_attn_wk;
+    logic [WORD_WIDTH-1:0] data_a_attn_wk [N_BANKS_ATTN];
+    logic [WORD_WIDTH-1:0] data_b_attn_wk [N_BANKS_ATTN];
 
-    attn_wk_rom attn_wk_rom_inst (
+    weight_rom #(
+        .N_BANKS(N_BANKS_ATTN),
+        .WEIGHT_NAME(ATTN_WK)
+    ) attn_wk_rom (
         .clk(clk),
-        .addr_a(wrom_addr_a_matvec),
-        .data_a(data_a_attn_wk),
-        .addr_b(wrom_addr_b_matvec),
-        .data_b(data_b_attn_wk)
+        .wr_en_a('{default: '0}),
+        .wr_data_a('{default: '0}),
+        .addr_a(wrom_addr_a_matvec[0:N_BANKS_ATTN-1]),
+        .rd_data_a(data_a_attn_wk),
+        .wr_en_b('{default: '0}),
+        .wr_data_b('{default: '0}),
+        .addr_b(wrom_addr_b_matvec[0:N_BANKS_ATTN-1]),
+        .rd_data_b(data_b_attn_wk)
     );
 
     // attn_wo rom
-    logic [DATA_WIDTH-1:0] data_a_attn_wo, data_b_attn_wo;
+    logic [WORD_WIDTH-1:0] data_a_attn_wo [N_BANKS_ATTN];
+    logic [WORD_WIDTH-1:0] data_b_attn_wo [N_BANKS_ATTN];
 
-    attn_wo_rom attn_wo_rom_inst (
+    weight_rom #(
+        .N_BANKS(N_BANKS_ATTN),
+        .WEIGHT_NAME(ATTN_WO)
+    ) attn_wo_rom (
         .clk(clk),
-        .addr_a(wrom_addr_a_matvec),
-        .data_a(data_a_attn_wo),
-        .addr_b(wrom_addr_b_matvec),
-        .data_b(data_b_attn_wo)
+        .wr_en_a('{default: '0}),
+        .wr_data_a('{default: '0}),
+        .addr_a(wrom_addr_a_matvec[0:N_BANKS_ATTN-1]),
+        .rd_data_a(data_a_attn_wo),
+        .wr_en_b('{default: '0}),
+        .wr_data_b('{default: '0}),
+        .addr_b(wrom_addr_b_matvec[0:N_BANKS_ATTN-1]),
+        .rd_data_b(data_b_attn_wo)
     );
 
     // attn_wq rom
-    logic [DATA_WIDTH-1:0] data_a_attn_wq, data_b_attn_wq;
+    logic [WORD_WIDTH-1:0] data_a_attn_wq [N_BANKS_ATTN];
+    logic [WORD_WIDTH-1:0] data_b_attn_wq [N_BANKS_ATTN];
 
-    attn_wq_rom attn_wq_rom_inst (
+    weight_rom #(
+        .N_BANKS(N_BANKS_ATTN),
+        .WEIGHT_NAME(ATTN_WQ)
+    ) attn_wq_rom (
         .clk(clk),
-        .addr_a(wrom_addr_a_matvec),
-        .data_a(data_a_attn_wq),
-        .addr_b(wrom_addr_b_matvec),
-        .data_b(data_b_attn_wq)
+        .wr_en_a('{default: '0}),
+        .wr_data_a('{default: '0}),
+        .addr_a(wrom_addr_a_matvec[0:N_BANKS_ATTN-1]),
+        .rd_data_a(data_a_attn_wq),
+        .wr_en_b('{default: '0}),
+        .wr_data_b('{default: '0}),
+        .addr_b(wrom_addr_b_matvec[0:N_BANKS_ATTN-1]),
+        .rd_data_b(data_b_attn_wq)
     );
 
     // attn_wv rom
-    logic [DATA_WIDTH-1:0] data_a_attn_wv, data_b_attn_wv;
+    logic [WORD_WIDTH-1:0] data_a_attn_wv [N_BANKS_ATTN];
+    logic [WORD_WIDTH-1:0] data_b_attn_wv [N_BANKS_ATTN];
 
-    attn_wv_rom attn_wv_rom_inst (
+    weight_rom #(
+        .N_BANKS(N_BANKS_ATTN),
+        .WEIGHT_NAME(ATTN_WV)
+    ) attn_wv_rom (
         .clk(clk),
-        .addr_a(wrom_addr_a_matvec),
-        .data_a(data_a_attn_wv),
-        .addr_b(wrom_addr_b_matvec),
-        .data_b(data_b_attn_wv)
+        .wr_en_a('{default: '0}),
+        .wr_data_a('{default: '0}),
+        .addr_a(wrom_addr_a_matvec[0:N_BANKS_ATTN-1]),
+        .rd_data_a(data_a_attn_wv),
+        .wr_en_b('{default: '0}),
+        .wr_data_b('{default: '0}),
+        .addr_b(wrom_addr_b_matvec[0:N_BANKS_ATTN-1]),
+        .rd_data_b(data_b_attn_wv)
     );
 
     // mlp_fc1 rom
-    logic [DATA_WIDTH-1:0] data_a_mlp_fc1, data_b_mlp_fc1;
+    logic [WORD_WIDTH-1:0] data_a_mlp_fc1 [N_BANKS_MLP];
+    logic [WORD_WIDTH-1:0] data_b_mlp_fc1 [N_BANKS_MLP];
 
-    mlp_fc1_rom mlp_fc1_rom_inst (
+    weight_rom #(
+        .N_BANKS(N_BANKS_MLP),
+        .WEIGHT_NAME(MLP_FC1)
+    ) mlp_fc1_rom (
         .clk(clk),
-        .wr_en_a(1'b0),
-        .wr_data_a(8'b0),
-        .addr_a(wrom_addr_a_matvec),
+        .wr_en_a('{default: '0}),
+        .wr_data_a('{default: '0}),
+        .addr_a(wrom_addr_a_matvec[0:N_BANKS_MLP-1]),
         .rd_data_a(data_a_mlp_fc1),
-        .wr_en_b(1'b0),
-        .wr_data_b(8'b0),
-        .addr_b(wrom_addr_b_matvec),
+        .wr_en_b('{default: '0}),
+        .wr_data_b('{default: '0}),
+        .addr_b(wrom_addr_b_matvec[0:N_BANKS_MLP-1]),
         .rd_data_b(data_b_mlp_fc1)
     );
 
     // mlp_fc2 rom
-    logic [DATA_WIDTH-1:0] data_a_mlp_fc2, data_b_mlp_fc2;
+    logic [WORD_WIDTH-1:0] data_a_mlp_fc2 [N_BANKS_MLP];
+    logic [WORD_WIDTH-1:0] data_b_mlp_fc2 [N_BANKS_MLP];
 
-    mlp_fc2_rom mlp_fc2_rom_inst (
+    weight_rom #(
+        .N_BANKS(N_BANKS_MLP),
+        .WEIGHT_NAME(MLP_FC2)
+    ) mlp_fc2_rom (
         .clk(clk),
-        .wr_en_a(1'b0),
-        .wr_data_a(8'b0),
-        .addr_a(wrom_addr_a_matvec),
+        .wr_en_a('{default: '0}),
+        .wr_data_a('{default: '0}),
+        .addr_a(wrom_addr_a_matvec[0:N_BANKS_MLP-1]),
         .rd_data_a(data_a_mlp_fc2),
-        .wr_en_b(1'b0),
-        .wr_data_b(8'b0),
-        .addr_b(wrom_addr_b_matvec),
+        .wr_en_b('{default: '0}),
+        .wr_data_b('{default: '0}),
+        .addr_b(wrom_addr_b_matvec[0:N_BANKS_MLP-1]),
         .rd_data_b(data_b_mlp_fc2)
     );
 
@@ -659,10 +688,15 @@ module engine_top #(
     );
 
     // wte rom
-    logic [$clog2(BANK_DEPTH)-1:0] addr_a_wte_rom [N_BANKS];
-    logic [$clog2(BANK_DEPTH)-1:0] addr_b_wte_rom [N_BANKS];
+    logic [$clog2(BANK_DEPTH)-1:0] addr_a_wte_rom [N_BANKS_WTE];
+    logic [$clog2(BANK_DEPTH)-1:0] addr_b_wte_rom [N_BANKS_WTE];
+    logic [WORD_WIDTH-1:0] data_a_wte_rom [N_BANKS_WTE];
+    logic [WORD_WIDTH-1:0] data_b_wte_rom [N_BANKS_WTE];
 
-    wte_rom wte_rom_inst (
+    weight_rom #(
+        .N_BANKS(N_BANKS_WTE),
+        .WEIGHT_NAME(LM_HEAD)
+    ) wte_rom (
         .clk(clk),
         .wr_en_a('{default: '0}),
         .wr_data_a('{default: '0}),
@@ -933,8 +967,8 @@ module engine_top #(
                 done_sequencer       = done_matvec;
                 layer_matvec         = layer_sequencer;
                 param_matvec         = matvec_param_t'(param_sequencer);
-                addr_a_wte_rom       = wte_addr_a_matvec;
-                addr_b_wte_rom       = wte_addr_b_matvec;
+                addr_a_wte_rom       = wrom_addr_a_matvec;
+                addr_b_wte_rom       = wrom_addr_b_matvec;
                 rd_data_a_matvec     = rd_data_a_scratchpad;
                 wr_en_a_scratchpad   = wr_en_a_matvec;
                 addr_a_scratchpad    = addr_a_matvec;
@@ -1033,44 +1067,44 @@ module engine_top #(
 
         endcase
 
+        wrom_data_a_matvec = '{default: '0};
+        wrom_data_b_matvec = '{default: '0};
+
         if (actuator_sel == MATVEC) begin
             case (param_matvec)
                 ATTN_WQ: begin
-                    wrom_data_a_matvec = data_a_attn_wq;
-                    wrom_data_b_matvec = data_b_attn_wq;
+                    wrom_data_a_matvec[0:N_BANKS_ATTN-1] = data_a_attn_wq;
+                    wrom_data_b_matvec[0:N_BANKS_ATTN-1] = data_b_attn_wq;
                 end
                 ATTN_WK: begin
-                    wrom_data_a_matvec = data_a_attn_wk;
-                    wrom_data_b_matvec = data_b_attn_wk;
+                    wrom_data_a_matvec[0:N_BANKS_ATTN-1] = data_a_attn_wk;
+                    wrom_data_b_matvec[0:N_BANKS_ATTN-1] = data_b_attn_wk;
                 end
                 ATTN_WV: begin
-                    wrom_data_a_matvec = data_a_attn_wv;
-                    wrom_data_b_matvec = data_b_attn_wv;
+                    wrom_data_a_matvec[0:N_BANKS_ATTN-1] = data_a_attn_wv;
+                    wrom_data_b_matvec[0:N_BANKS_ATTN-1] = data_b_attn_wv;
                 end
                 ATTN_WO: begin
-                    wrom_data_a_matvec = data_a_attn_wo;
-                    wrom_data_b_matvec = data_b_attn_wo;
+                    wrom_data_a_matvec[0:N_BANKS_ATTN-1] = data_a_attn_wo;
+                    wrom_data_b_matvec[0:N_BANKS_ATTN-1] = data_b_attn_wo;
                 end
                 MLP_FC1: begin
-                    wrom_data_a_matvec = data_a_mlp_fc1;
-                    wrom_data_b_matvec = data_b_mlp_fc1;
+                    wrom_data_a_matvec[0:N_BANKS_MLP-1] = data_a_mlp_fc1;
+                    wrom_data_b_matvec[0:N_BANKS_MLP-1] = data_b_mlp_fc1;
                 end
                 MLP_FC2: begin
-                    wrom_data_a_matvec = data_a_mlp_fc2;
-                    wrom_data_b_matvec = data_b_mlp_fc2;
+                    wrom_data_a_matvec[0:N_BANKS_MLP-1] = data_a_mlp_fc2;
+                    wrom_data_b_matvec[0:N_BANKS_MLP-1] = data_b_mlp_fc2;
                 end
-                // LM_HEAD: begin
-                //     wrom_data_a_matvec = data_a_wte_rom;
-                //     wrom_data_b_matvec = data_b_wte_rom;
-                // end
+                LM_HEAD: begin
+                    wrom_data_a_matvec[0:N_BANKS_WTE-1] = data_a_wte_rom;
+                    wrom_data_b_matvec[0:N_BANKS_WTE-1] = data_b_wte_rom;
+                end
                 default: begin
-                    wrom_data_a_matvec = 0;
-                    wrom_data_b_matvec = 0;
+                    wrom_data_a_matvec = '{default: '0};
+                    wrom_data_b_matvec = '{default: '0};
                 end
             endcase
-        end else begin
-            wrom_data_a_matvec = 0;
-            wrom_data_b_matvec = 0;
         end
     end
     

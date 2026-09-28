@@ -129,6 +129,16 @@ package proj_pkg;
     localparam int LCG_PARAM_A = 1664525;
     localparam int LCG_PARAM_C = 1013904223;
 
+    // constants for rows per bank and bank count in weight ROMs
+    localparam int ROWS_PER_BANK_MLP_FC1 = 16;
+    localparam int ROWS_PER_BANK_MLP_FC2 = 4;
+    localparam int ROWS_PER_BANK_WTE     = 64;
+    localparam int ROWS_PER_BANK_ATTN_W  = 16;
+
+    localparam int N_BANKS_WTE  = 47;
+    localparam int N_BANKS_MLP  = 16;
+    localparam int N_BANKS_ATTN = 4;
+
     // typedef enum for matvec
     typedef enum logic [2:0] {  
         ATTN_WQ         = 3'b000,
