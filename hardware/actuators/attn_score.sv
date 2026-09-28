@@ -53,15 +53,16 @@ module attn_score #(
     logic [ADDR_WIDTH-1:0] addr_k_d, addr_k_q;
     logic [$clog2(HEAD_DIM)-1:0] dim_count_d, dim_count_q;
     logic [$clog2(BLOCK_SIZE)-1:0] pos_count_d, pos_count_q;
+    logic [DATA_WIDTH-1:0] rd_data_a_q, rd_data_b_q;
     (* USE_DSP = "yes" *) logic signed [31:0] acc_d, acc_q;
-    logic signed [47:0] temp_val;
+    logic signed [47:0] temp_val_d, temp_val_q;
 
     assign addr_a = addr_q_d;
     assign addr_b = addr_k_d;
 
     // FSM states
     typedef enum logic [2:0] {
-        IDLE, SUM, WRITE, WAIT, DONE
+        IDLE, WAIT1, SUM, WRITE1, WRITE2, WAIT2, DONE
     } state_t;
 
     state_t curr_state, next_state;
@@ -74,14 +75,20 @@ module attn_score #(
             addr_k_q    <= 0;
             dim_count_q <= 0;
             pos_count_q <= 0;
+            rd_data_a_q <= 0;
+            rd_data_b_q <= 0;
             acc_q       <= 32'b0;
+            temp_val_q  <= 48'b0;
         end else begin
             curr_state  <= next_state;
             addr_q_q    <= addr_q_d;
             addr_k_q    <= addr_k_d;
             dim_count_q <= dim_count_d;
             pos_count_q <= pos_count_d;
+            rd_data_a_q <= rd_data_a;
+            rd_data_b_q <= rd_data_b;
             acc_q       <= acc_d;
+            temp_val_q  <= temp_val_d;
         end
     end
 
@@ -94,13 +101,13 @@ module attn_score #(
         dim_count_d = dim_count_q;
         pos_count_d = pos_count_q;
         acc_d       = acc_q;
+        temp_val_d  = temp_val_q;
 
         done      = 1'b0;
         wr_en_a   = 1'b0;
         wr_en_b   = 1'b0;
         wr_data_a = 0;
         wr_data_b = 0;
-        temp_val  = 0;
 
         case (curr_state)
 
@@ -111,12 +118,18 @@ module attn_score #(
                     dim_count_d = 0;
                     pos_count_d = 0;
                     acc_d       = 0;
-                    next_state  = SUM;
+                    next_state  = WAIT1;
                 end
             end
 
+            WAIT1: begin
+                addr_q_d   = addr_q_q + 1;
+                addr_k_d   = addr_k_q + 1;
+                next_state = SUM;
+            end
+
             SUM: begin
-                acc_d       = acc_q + $signed(rd_data_a) * $signed(rd_data_b);
+                acc_d       = acc_q + $signed(rd_data_a_q) * $signed(rd_data_b_q);
                 dim_count_d = dim_count_q + 1;
 
                 if (dim_count_q < HEAD_DIM - 1) begin
@@ -125,35 +138,39 @@ module attn_score #(
                     next_state = SUM;
                 end else begin
                     addr_q_d   = output_base_addr + pos_count_q;
-                    next_state = WRITE;
+                    next_state = WRITE1;
                 end
             end
 
-            WRITE: begin
-                wr_en_a  = 1'b1;
-                temp_val  = (acc_q * $signed(M_ATTN_SCORE)) >>> S_ATTN_SCORE;
+            WRITE1: begin
+                temp_val_d = (acc_q * $signed(M_ATTN_SCORE)) >>> S_ATTN_SCORE;
+                next_state = WRITE2;
+            end
 
-                if (temp_val > 8'sd127)
+            WRITE2: begin
+                wr_en_a    = 1'b1;
+
+                if (temp_val_q > 8'sd127)
                     wr_data_a = 8'sd127;
-                else if (temp_val < -8'sd127)
+                else if (temp_val_q < -8'sd127)
                     wr_data_a = -8'sd127;
                 else
-                    wr_data_a = temp_val[7:0];
+                    wr_data_a = temp_val_q[7:0];
 
                 acc_d       = 0;
                 dim_count_d = 0;
                 pos_count_d = pos_count_q + 1;
 
                 if (pos_count_q < logit_size - 1)
-                    next_state = WAIT;
+                    next_state = WAIT2;
                 else 
                     next_state = DONE;
             end
 
-            WAIT: begin
+            WAIT2: begin
                 addr_q_d   = q_base_addr;
                 addr_k_d   = k_base_addr + N_EMBD * pos_count_d;
-                next_state = SUM;
+                next_state = WAIT1;
             end
 
             DONE: begin

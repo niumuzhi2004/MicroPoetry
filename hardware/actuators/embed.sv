@@ -40,24 +40,23 @@ module embed #(
     logic [ADDR_WIDTH-1:0] wr_addr_d, wr_addr_q;
     logic signed [23:0] temp_val_a_d, temp_val_a_q, temp_val_b_d, temp_val_b_q;
     logic signed [23:0] temp_val_d, temp_val_q;  // used for clamping when scaling
+    logic [DATA_WIDTH-1:0] wte_data_selected_d, wte_data_selected_q;
 
     assign wpe_addr = wpe_addr_d;
     assign wr_addr  = wr_addr_q;
 
     // wte bank select logic
-    logic [DATA_WIDTH-1:0] wte_data_selected;
-
     always_comb begin
         for (int i=0; i<N_BANKS; ++i) begin
             wte_addr[i] = '0;
         end
         wte_addr[wte_addr_d[17:12]] = wte_addr_d[11:2];
-        wte_data_selected = wte_data[bank_sel_q][8*wte_addr_q[1:0] +: 8];
+        wte_data_selected_d = wte_data[bank_sel_q][8*wte_addr_q[1:0] +: 8];
     end
 
     // FSM states
     typedef enum logic [2:0] {
-        IDLE, WRITE1, WRITE2, WRITE3, DONE
+        IDLE, WAIT, WRITE1, WRITE2, WRITE3, DONE
     } state_t;
 
     state_t curr_state, next_state;
@@ -65,25 +64,27 @@ module embed #(
     // FSM sequential logic
     always_ff @(posedge clk) begin
         if (~rst_n) begin
-            curr_state   <= IDLE;
-            count_q      <= 0;
-            bank_sel_q   <= 0;
-            wte_addr_q   <= 0;
-            wpe_addr_q   <= 0;
-            wr_addr_q    <= 0;
-            temp_val_a_q <= 0;
-            temp_val_b_q <= 0;
-            temp_val_q   <= 0;
+            curr_state          <= IDLE;
+            count_q             <= 0;
+            bank_sel_q          <= 0;
+            wte_addr_q          <= 0;
+            wpe_addr_q          <= 0;
+            wr_addr_q           <= 0;
+            temp_val_a_q        <= 0;
+            temp_val_b_q        <= 0;
+            temp_val_q          <= 0;
+            wte_data_selected_q <= 0;
         end else begin
-            curr_state   <= next_state;
-            count_q      <= count_d;
-            bank_sel_q   <= bank_sel_d;
-            wte_addr_q   <= wte_addr_d;
-            wpe_addr_q   <= wpe_addr_d;
-            wr_addr_q    <= wr_addr_d;
-            temp_val_a_q <= temp_val_a_d;
-            temp_val_b_q <= temp_val_b_d;
-            temp_val_q   <= temp_val_d;
+            curr_state          <= next_state;
+            count_q             <= count_d;
+            bank_sel_q          <= bank_sel_d;
+            wte_addr_q          <= wte_addr_d;
+            wpe_addr_q          <= wpe_addr_d;
+            wr_addr_q           <= wr_addr_d;
+            temp_val_a_q        <= temp_val_a_d;
+            temp_val_b_q        <= temp_val_b_d;
+            temp_val_q          <= temp_val_d;
+            wte_data_selected_q <= wte_data_selected_d;
         end
     end
 
@@ -113,14 +114,19 @@ module embed #(
                     wpe_addr_d = pos_id * N_EMBD;
                     wr_addr_d  = X_EMBD_BASE_ADDR;
                     bank_sel_d = token_id >> 6;
-                    next_state = WRITE1;
+                    next_state = WAIT;
                 end
+            end
+
+            WAIT: begin
+                // Wait for wte_data_selected_q to be updated
+                next_state = WRITE1;
             end
 
             WRITE1: begin
                 // apply scaling
                 temp_val_a_d = $signed(wpe_data) * M_WPE;
-                temp_val_b_d = $signed(wte_data_selected) * M_WTE;
+                temp_val_b_d = $signed(wte_data_selected_q) * M_WTE;
                 next_state   = WRITE2;
             end
 
@@ -144,7 +150,7 @@ module embed #(
                     wte_addr_d = wte_addr_q + 1;
                     wpe_addr_d = wpe_addr_q + 1;
                     wr_addr_d  = wr_addr_q + 1;
-                    next_state = WRITE1;
+                    next_state = WAIT;
                 end else begin
                     next_state = DONE;
                 end

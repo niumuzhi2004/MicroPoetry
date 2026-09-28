@@ -106,10 +106,10 @@ module softmax #(
     logic [31:0] total_d, total_q;                          // Q17.15
     logic [15:0] m_d, m_q;                                  // Q1.15
     logic signed [16:0] recip_val_d, recip_val_q;           // Q1.15
-    logic [2:0] exp_d, exp_q;           // exponent to extract in reciprocal approximation
-    logic signed [15:0] raw_diff;       // unscaled diff
-    logic signed [16:0] shifted_diff;   // diff-(-8)           Q4.12
-    logic [15:0] shifted_m;             // m - 1               Q1.15
+    logic [2:0] exp_d, exp_q;                               // exponent to extract in reciprocal approximation
+    logic signed [15:0] raw_diff_d, raw_diff_q;             // unscaled diff
+    logic signed [16:0] shifted_diff;                       // diff-(-8)           Q4.12
+    logic [15:0] shifted_m;                                 // m - 1               Q1.15
     logic signed [31:0] diff_prod;
     logic signed [22:0] idx_prod;                           // Q6.16
     logic signed [31:0] interp_prod;                        // Q1.31
@@ -129,8 +129,10 @@ module softmax #(
 
     // FSM states
     typedef enum logic [4:0] {
-        IDLE, MAX, DIFF1, DIFF2, EXP1, EXP2, EXP3, EXP4, EXP5, TOTAL, 
-        RECIP0, RECIP1, RECIP2, RECIP3, RECIP4, WRITE1, WRITE2, RESCALE, DONE
+        IDLE, MAX, DIFF0, DIFF1, DIFF2,
+        EXP1, EXP2, EXP3, EXP4, EXP5,
+        TOTAL, RECIP0, RECIP1, RECIP2, RECIP3, RECIP4,
+        WRITE1, WRITE2, RESCALE, DONE
     } state_t;
 
     state_t curr_state, next_state;
@@ -156,6 +158,7 @@ module softmax #(
             m_q             <= 16'd0;
             recip_val_q     <= 16'd0;
             exp_q           <= 3'd0;
+            raw_diff_q      <= 16'd0;
             rescaled_q      <= 31'd0;
             temp_val_odd_q  <= 31'd0;
             temp_val_even_q <= 31'd0;
@@ -178,6 +181,7 @@ module softmax #(
             m_q             <= m_d;
             recip_val_q     <= recip_val_d;
             exp_q           <= exp_d;
+            raw_diff_q      <= raw_diff_d;
             rescaled_q      <= rescaled_d;
             temp_val_odd_q  <= temp_val_odd_d;
             temp_val_even_q <= temp_val_even_d;
@@ -205,6 +209,7 @@ module softmax #(
         m_d             = m_q;
         recip_val_d     = recip_val_q;
         exp_d           = exp_q;
+        raw_diff_d      = raw_diff_q;
         rescaled_d      = rescaled_q;
         temp_val_odd_d  = temp_val_odd_q;
         temp_val_even_d = temp_val_even_q;
@@ -218,7 +223,6 @@ module softmax #(
         exps_mem_addr  = 0;
         exps_mem_wdata = 0;
         
-        raw_diff         = 0;
         shifted_diff     = 0;
         shifted_m        = 0;
         diff_prod        = 0;
@@ -260,13 +264,17 @@ module softmax #(
                         max_overall_d = max_even_d;
                     count_d    = 0;
                     addr_odd_d = input_base_addr;
-                    next_state = DIFF1;
+                    next_state = DIFF0;
                 end
             end
 
+            DIFF0: begin
+                raw_diff_d = $signed(rd_data_a) - max_overall_q;
+                next_state = DIFF1;
+            end
+
             DIFF1: begin
-                raw_diff  = $signed(rd_data_a) - max_overall_q;
-                diff_prod = raw_diff * $signed(M_diff);
+                diff_prod = raw_diff_q * $signed(M_diff);
                 diff_d    = diff_prod >>> (S_SOFTMAX - 12);
                 next_state = DIFF2;
             end
@@ -328,7 +336,7 @@ module softmax #(
                 addr_odd_d = addr_odd_q + 1;
                 count_d    = count_q + 1;
                 if (count_q < logit_size - 1)
-                    next_state = DIFF1;
+                    next_state = DIFF0;
                 else
                     next_state = RECIP0;
             end
